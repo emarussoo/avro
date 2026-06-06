@@ -75,4 +75,4 @@ jobs:
 
       - name: Build Avro Java modules without tests
         working-directory: lang/java
-        run: mvn clean install -Dmaven.test.skip=true -Dinvoker.skip=true
+        run: mvn -pl avro -am clean install -Dmaven.test.skip=true -Dinvoker.skip=true
