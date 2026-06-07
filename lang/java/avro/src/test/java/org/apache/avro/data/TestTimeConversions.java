@@ -44,6 +44,7 @@ public class TestTimeConversions {
   public static Schema TIME_MICROS_SCHEMA;
   public static Schema TIMESTAMP_MILLIS_SCHEMA;
   public static Schema TIMESTAMP_MICROS_SCHEMA;
+  public static Schema TIMESTAMP_NANOS_SCHEMA;
 
   @BeforeAll
   public static void createSchemas() {
@@ -53,6 +54,8 @@ public class TestTimeConversions {
     TestTimeConversions.TIMESTAMP_MILLIS_SCHEMA = LogicalTypes.timestampMillis()
         .addToSchema(Schema.create(Schema.Type.LONG));
     TestTimeConversions.TIMESTAMP_MICROS_SCHEMA = LogicalTypes.timestampMicros()
+        .addToSchema(Schema.create(Schema.Type.LONG));
+    TestTimeConversions.TIMESTAMP_NANOS_SCHEMA = LogicalTypes.timestampNanos()
         .addToSchema(Schema.create(Schema.Type.LONG));
   }
 
@@ -189,6 +192,18 @@ public class TestTimeConversions {
     assertEquals(Jul_01_1969_12_00_00_000_123_instant,
         (long) conversion.toLong(Jul_01_1969_12_00_00_000_123, TIMESTAMP_MILLIS_SCHEMA, LogicalTypes.timestampMillis()),
         "Pre 1970 date should be correct");
+  }
+
+
+  @Test
+  void timestampNanosConversionBeforeEpoch() {
+    TimeConversions.TimestampNanosConversion conversion = new TimeConversions.TimestampNanosConversion();
+    
+    // -1 seconds and +500.000.000 nanosecondi = 0.5 seconds before epoch
+    Instant beforeEpoch = Instant.ofEpochSecond(-1, 500_000_000);
+    
+    assertEquals(-500_000_000L, (long) conversion.toLong(beforeEpoch, TIMESTAMP_NANOS_SCHEMA, LogicalTypes.timestampNanos()),
+        "Pre 1970 nanos date should be correct");
   }
 
   @Test
