@@ -73,6 +73,6 @@ jobs:
           </toolchains>
           EOF
 
-      - name: Build Avro Java modules without tests
+      - name: Run ISW2 TimeConversions stable tests
         working-directory: lang/java
-        run: mvn -pl avro -am clean install -Dmaven.test.skip=true -Dinvoker.skip=true
+        run: mvn -pl avro -am clean test -Dtest='ISW2TimeConversionsBBTest,ISW2TimeConversionsRNDTest' -Dinvoker.skip=true
