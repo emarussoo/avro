@@ -2,7 +2,7 @@ package org.apache.avro.data;
 
 import org.apache.avro.Schema;
 import org.junit.Test;
-
+import org.junit.Ignore;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -164,6 +164,20 @@ public class ISW2TimeConversionsBBTest {
 
     assertEquals(Long.valueOf(1_123_456_789L), conversion.toLong(instant, null, null));
     assertEquals(instant, conversion.fromLong(1_123_456_789L, null, null));
+  }
+
+  /*
+   * BB7 - bug exposing test handled with @ignore
+   */
+
+  @Ignore("Bug-exposing test: documents current failure in TimestampNanosConversion with negative fractional instants")
+  @Test
+  public void toLong_negativeInstantWithPositiveNanos_returnsNegativeNanos() {
+    TimeConversions.TimestampNanosConversion conversion = new TimeConversions.TimestampNanosConversion();
+
+    Instant instant = Instant.ofEpochSecond(-1, 500_000_000);
+
+    assertEquals(Long.valueOf(-500_000_000L), conversion.toLong(instant, null, null));
   }
 
   /*
