@@ -1,0 +1,335 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ReflectDatumReader.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Avro</a> &gt; <a href="index.source.html" class="el_package">org.apache.avro.reflect</a> &gt; <span class="el_source">ReflectDatumReader.java</span></div><h1>ReflectDatumReader.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.avro.reflect;
+
+import java.io.IOException;
+import java.lang.reflect.Array;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Optional;
+
+import org.apache.avro.AvroRuntimeException;
+import org.apache.avro.Conversion;
+import org.apache.avro.LogicalType;
+import org.apache.avro.Schema;
+import org.apache.avro.Schema.Field;
+import org.apache.avro.generic.IndexedRecord;
+import org.apache.avro.io.Decoder;
+import org.apache.avro.io.ResolvingDecoder;
+import org.apache.avro.specific.SpecificData;
+import org.apache.avro.specific.SpecificDatumReader;
+
+/**
+ * {@link org.apache.avro.io.DatumReader DatumReader} for existing classes via
+ * Java reflection.
+ */
+public class ReflectDatumReader&lt;T&gt; extends SpecificDatumReader&lt;T&gt; {
+  public ReflectDatumReader() {
+<span class="nc" id="L47">    this(null, null, ReflectData.get());</span>
+<span class="nc" id="L48">  }</span>
+
+  /** Construct for reading instances of a class. */
+  public ReflectDatumReader(Class&lt;T&gt; c) {
+<span class="nc" id="L52">    this(new ReflectData(c.getClassLoader()));</span>
+<span class="nc" id="L53">    setSchema(getSpecificData().getSchema(c));</span>
+<span class="nc" id="L54">  }</span>
+
+  /** Construct where the writer's and reader's schemas are the same. */
+  public ReflectDatumReader(Schema root) {
+<span class="nc" id="L58">    this(root, root, ReflectData.get());</span>
+<span class="nc" id="L59">  }</span>
+
+  /** Construct given writer's and reader's schema. */
+  public ReflectDatumReader(Schema writer, Schema reader) {
+<span class="nc" id="L63">    this(writer, reader, ReflectData.get());</span>
+<span class="nc" id="L64">  }</span>
+
+  /** Construct given writer's and reader's schema and the data model. */
+  public ReflectDatumReader(Schema writer, Schema reader, ReflectData data) {
+<span class="nc" id="L68">    super(writer, reader, data);</span>
+<span class="nc" id="L69">  }</span>
+
+  /** Construct given a {@link ReflectData}. */
+  public ReflectDatumReader(ReflectData data) {
+<span class="nc" id="L73">    super(data);</span>
+<span class="nc" id="L74">  }</span>
+
+  private ReflectData getReflectData() {
+<span class="nc" id="L77">    return (ReflectData) getSpecificData();</span>
+  }
+
+  @Override
+  protected Object newArray(Object old, int size, Schema schema) {
+<span class="nc" id="L82">    Class&lt;?&gt; collectionClass = ReflectData.getClassProp(schema, SpecificData.CLASS_PROP);</span>
+<span class="nc" id="L83">    Class&lt;?&gt; elementClass = ReflectData.getClassProp(schema, SpecificData.ELEMENT_PROP);</span>
+
+<span class="nc bnc" id="L85" title="All 2 branches missed.">    if (elementClass == null) {</span>
+      // see if the element class will be converted and use that class
+      // logical types cannot conflict with java-element-class
+<span class="nc" id="L88">      Conversion&lt;?&gt; elementConversion = getData().getConversionFor(schema.getElementType().getLogicalType());</span>
+<span class="nc bnc" id="L89" title="All 2 branches missed.">      if (elementConversion != null) {</span>
+<span class="nc" id="L90">        elementClass = elementConversion.getConvertedType();</span>
+      }
+    }
+
+<span class="nc bnc" id="L94" title="All 4 branches missed.">    if (collectionClass == null &amp;&amp; elementClass == null)</span>
+<span class="nc" id="L95">      return super.newArray(old, size, schema); // use specific/generic</span>
+
+<span class="nc bnc" id="L97" title="All 4 branches missed.">    if (collectionClass != null &amp;&amp; !collectionClass.isArray()) {</span>
+<span class="nc bnc" id="L98" title="All 2 branches missed.">      if (old instanceof Collection) {</span>
+<span class="nc" id="L99">        ((Collection&lt;?&gt;) old).clear();</span>
+<span class="nc" id="L100">        return old;</span>
+      }
+
+<span class="nc bnc" id="L103" title="All 2 branches missed.">      if (collectionClass.isAssignableFrom(ArrayList.class))</span>
+<span class="nc" id="L104">        return new ArrayList&lt;&gt;();</span>
+
+<span class="nc bnc" id="L106" title="All 2 branches missed.">      if (collectionClass.isAssignableFrom(HashSet.class))</span>
+<span class="nc" id="L107">        return new HashSet&lt;&gt;();</span>
+
+<span class="nc bnc" id="L109" title="All 2 branches missed.">      if (collectionClass.isAssignableFrom(HashMap.class))</span>
+<span class="nc" id="L110">        return new HashMap&lt;&gt;();</span>
+
+<span class="nc" id="L112">      return SpecificData.newInstance(collectionClass, schema);</span>
+    }
+
+<span class="nc bnc" id="L115" title="All 2 branches missed.">    if (elementClass == null) {</span>
+<span class="nc" id="L116">      elementClass = collectionClass.getComponentType();</span>
+    }
+<span class="nc bnc" id="L118" title="All 2 branches missed.">    if (elementClass == null) {</span>
+<span class="nc" id="L119">      ReflectData data = (ReflectData) getData();</span>
+<span class="nc" id="L120">      elementClass = data.getClass(schema.getElementType());</span>
+    }
+<span class="nc" id="L122">    return Array.newInstance(elementClass, size);</span>
+  }
+
+  @Override
+  protected Object peekArray(Object array) {
+<span class="nc" id="L127">    return null;</span>
+  }
+
+  @Override
+  protected void addToArray(Object array, long pos, Object e) {
+<span class="nc" id="L132">    throw new AvroRuntimeException(&quot;reflectDatumReader does not use addToArray&quot;);</span>
+  }
+
+  @Override
+  /**
+   * Called to read an array instance. May be overridden for alternate array
+   * representations.
+   */
+  protected Object readArray(Object old, Schema expected, ResolvingDecoder in) throws IOException {
+<span class="nc" id="L141">    Schema expectedType = expected.getElementType();</span>
+<span class="nc" id="L142">    long l = in.readArrayStart();</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">    if (l &lt;= 0) {</span>
+<span class="nc" id="L144">      return newArray(old, 0, expected);</span>
+    }
+<span class="nc" id="L146">    Object array = newArray(old, (int) l, expected);</span>
+<span class="nc bnc" id="L147" title="All 2 branches missed.">    if (array instanceof Collection) {</span>
+      @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L149">      Collection&lt;Object&gt; c = (Collection&lt;Object&gt;) array;</span>
+<span class="nc" id="L150">      return readCollection(c, expectedType, l, in);</span>
+<span class="nc bnc" id="L151" title="All 2 branches missed.">    } else if (array instanceof Map) {</span>
+      // Only for non-string keys, we can use NS_MAP_* fields
+      // So we check the same explicitly here
+<span class="nc bnc" id="L154" title="All 2 branches missed.">      if (ReflectData.isNonStringMapSchema(expected)) {</span>
+<span class="nc" id="L155">        Collection&lt;Object&gt; c = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L156">        readCollection(c, expectedType, l, in);</span>
+<span class="nc" id="L157">        Map m = (Map) array;</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">        for (Object ele : c) {</span>
+<span class="nc" id="L159">          IndexedRecord rec = ((IndexedRecord) ele);</span>
+<span class="nc" id="L160">          Object key = rec.get(ReflectData.NS_MAP_KEY_INDEX);</span>
+<span class="nc" id="L161">          Object value = rec.get(ReflectData.NS_MAP_VALUE_INDEX);</span>
+<span class="nc" id="L162">          m.put(key, value);</span>
+<span class="nc" id="L163">        }</span>
+<span class="nc" id="L164">        return array;</span>
+      } else {
+<span class="nc" id="L166">        String msg = &quot;Expected a schema of map with non-string keys but got &quot; + expected;</span>
+<span class="nc" id="L167">        throw new AvroRuntimeException(msg);</span>
+      }
+    } else {
+<span class="nc" id="L170">      return readJavaArray(array, expectedType, l, in);</span>
+    }
+  }
+
+  private Object readJavaArray(Object array, Schema expectedType, long l, ResolvingDecoder in) throws IOException {
+<span class="nc" id="L175">    Class&lt;?&gt; elementType = array.getClass().getComponentType();</span>
+<span class="nc bnc" id="L176" title="All 2 branches missed.">    if (elementType.isPrimitive()) {</span>
+<span class="nc" id="L177">      return readPrimitiveArray(array, elementType, l, in);</span>
+    } else {
+<span class="nc" id="L179">      return readObjectArray((Object[]) array, expectedType, l, in);</span>
+    }
+  }
+
+  private Object readPrimitiveArray(Object array, Class&lt;?&gt; c, long l, ResolvingDecoder in) throws IOException {
+<span class="nc" id="L184">    return ArrayAccessor.readArray(array, c, l, in);</span>
+  }
+
+  private Object readObjectArray(Object[] array, Schema expectedType, long l, ResolvingDecoder in) throws IOException {
+<span class="nc" id="L188">    LogicalType logicalType = expectedType.getLogicalType();</span>
+<span class="nc" id="L189">    Conversion&lt;?&gt; conversion = getData().getConversionFor(logicalType);</span>
+<span class="nc" id="L190">    int index = 0;</span>
+<span class="nc bnc" id="L191" title="All 4 branches missed.">    if (logicalType != null &amp;&amp; conversion != null) {</span>
+      do {
+<span class="nc" id="L193">        int limit = index + (int) l;</span>
+<span class="nc bnc" id="L194" title="All 2 branches missed.">        while (index &lt; limit) {</span>
+<span class="nc" id="L195">          Object element = readWithConversion(null, expectedType, logicalType, conversion, in);</span>
+<span class="nc" id="L196">          array[index] = element;</span>
+<span class="nc" id="L197">          index++;</span>
+<span class="nc" id="L198">        }</span>
+<span class="nc bnc" id="L199" title="All 2 branches missed.">      } while ((l = in.arrayNext()) &gt; 0);</span>
+    } else {
+      do {
+<span class="nc" id="L202">        int limit = index + (int) l;</span>
+<span class="nc bnc" id="L203" title="All 2 branches missed.">        while (index &lt; limit) {</span>
+<span class="nc" id="L204">          Object element = readWithoutConversion(null, expectedType, in);</span>
+<span class="nc" id="L205">          array[index] = element;</span>
+<span class="nc" id="L206">          index++;</span>
+<span class="nc" id="L207">        }</span>
+<span class="nc bnc" id="L208" title="All 2 branches missed.">      } while ((l = in.arrayNext()) &gt; 0);</span>
+    }
+<span class="nc" id="L210">    return array;</span>
+  }
+
+  private Object readCollection(Collection&lt;Object&gt; c, Schema expectedType, long l, ResolvingDecoder in)
+      throws IOException {
+<span class="nc" id="L215">    LogicalType logicalType = expectedType.getLogicalType();</span>
+<span class="nc" id="L216">    Conversion&lt;?&gt; conversion = getData().getConversionFor(logicalType);</span>
+<span class="nc bnc" id="L217" title="All 4 branches missed.">    if (logicalType != null &amp;&amp; conversion != null) {</span>
+      do {
+<span class="nc bnc" id="L219" title="All 2 branches missed.">        for (int i = 0; i &lt; l; i++) {</span>
+<span class="nc" id="L220">          Object element = readWithConversion(null, expectedType, logicalType, conversion, in);</span>
+<span class="nc" id="L221">          c.add(element);</span>
+        }
+<span class="nc bnc" id="L223" title="All 2 branches missed.">      } while ((l = in.arrayNext()) &gt; 0);</span>
+    } else {
+      do {
+<span class="nc bnc" id="L226" title="All 2 branches missed.">        for (int i = 0; i &lt; l; i++) {</span>
+<span class="nc" id="L227">          Object element = readWithoutConversion(null, expectedType, in);</span>
+<span class="nc" id="L228">          c.add(element);</span>
+        }
+<span class="nc bnc" id="L230" title="All 2 branches missed.">      } while ((l = in.arrayNext()) &gt; 0);</span>
+    }
+<span class="nc" id="L232">    return c;</span>
+  }
+
+  @Override
+  protected Object readString(Object old, Decoder in) throws IOException {
+<span class="nc" id="L237">    return super.readString(null, in).toString();</span>
+  }
+
+  @Override
+  protected Object createString(String value) {
+<span class="nc" id="L242">    return value;</span>
+  }
+
+  @Override
+  protected Object readBytes(Object old, Schema s, Decoder in) throws IOException {
+<span class="nc" id="L247">    ByteBuffer bytes = in.readBytes(null);</span>
+<span class="nc" id="L248">    Class&lt;?&gt; c = ReflectData.getClassProp(s, SpecificData.CLASS_PROP);</span>
+<span class="nc bnc" id="L249" title="All 4 branches missed.">    if (c != null &amp;&amp; c.isArray()) {</span>
+<span class="nc" id="L250">      byte[] result = new byte[bytes.remaining()];</span>
+<span class="nc" id="L251">      bytes.get(result);</span>
+<span class="nc" id="L252">      return result;</span>
+    } else {
+<span class="nc" id="L254">      return bytes;</span>
+    }
+  }
+
+  @Override
+  protected Object read(Object old, Schema expected, ResolvingDecoder in) throws IOException {
+<span class="nc" id="L260">    CustomEncoding encoder = getReflectData().getCustomEncoding(expected);</span>
+<span class="nc bnc" id="L261" title="All 2 branches missed.">    if (encoder != null) {</span>
+<span class="nc" id="L262">      return encoder.read(old, in);</span>
+    } else {
+<span class="nc" id="L264">      return super.read(old, expected, in);</span>
+    }
+  }
+
+  @Override
+  protected Object readInt(Object old, Schema expected, Decoder in) throws IOException {
+<span class="nc" id="L270">    Object value = in.readInt();</span>
+<span class="nc" id="L271">    String intClass = expected.getProp(SpecificData.CLASS_PROP);</span>
+<span class="nc bnc" id="L272" title="All 2 branches missed.">    if (Byte.class.getName().equals(intClass))</span>
+<span class="nc" id="L273">      value = ((Integer) value).byteValue();</span>
+<span class="nc bnc" id="L274" title="All 2 branches missed.">    else if (Short.class.getName().equals(intClass))</span>
+<span class="nc" id="L275">      value = ((Integer) value).shortValue();</span>
+<span class="nc bnc" id="L276" title="All 2 branches missed.">    else if (Character.class.getName().equals(intClass))</span>
+<span class="nc" id="L277">      value = (char) (int) (Integer) value;</span>
+<span class="nc" id="L278">    return value;</span>
+  }
+
+  @Override
+  protected void readField(Object record, Field field, Object oldDatum, ResolvingDecoder in, Object state)
+      throws IOException {
+<span class="nc bnc" id="L284" title="All 2 branches missed.">    if (state != null) {</span>
+<span class="nc" id="L285">      FieldAccessor accessor = ((FieldAccessor[]) state)[field.pos()];</span>
+<span class="nc bnc" id="L286" title="All 2 branches missed.">      if (accessor != null) {</span>
+<span class="nc bnc" id="L287" title="All 2 branches missed.">        if (accessor.supportsIO()</span>
+<span class="nc bnc" id="L288" title="All 4 branches missed.">            &amp;&amp; (!Schema.Type.UNION.equals(field.schema().getType()) || accessor.isCustomEncoded())) {</span>
+<span class="nc" id="L289">          accessor.read(record, in);</span>
+<span class="nc" id="L290">          return;</span>
+        }
+<span class="nc bnc" id="L292" title="All 2 branches missed.">        if (accessor.isStringable()) {</span>
+          try {
+<span class="nc" id="L294">            String asString = (String) read(null, field.schema(), in);</span>
+<span class="nc" id="L295">            accessor.set(record,</span>
+<span class="nc bnc" id="L296" title="All 2 branches missed.">                asString == null ? null : newInstanceFromString(accessor.getField().getType(), asString));</span>
+<span class="nc" id="L297">            return;</span>
+<span class="nc" id="L298">          } catch (Exception e) {</span>
+<span class="nc" id="L299">            throw new AvroRuntimeException(&quot;Failed to read Stringable&quot;, e);</span>
+          }
+        }
+<span class="nc" id="L302">        LogicalType logicalType = field.schema().getLogicalType();</span>
+<span class="nc bnc" id="L303" title="All 2 branches missed.">        if (logicalType != null) {</span>
+<span class="nc" id="L304">          Conversion&lt;?&gt; conversion = getData().getConversionByClass(accessor.getField().getType(), logicalType);</span>
+<span class="nc bnc" id="L305" title="All 2 branches missed.">          if (conversion != null) {</span>
+            try {
+<span class="nc" id="L307">              accessor.set(record, convert(readWithoutConversion(oldDatum, field.schema(), in), field.schema(),</span>
+                  logicalType, conversion));
+<span class="nc" id="L309">            } catch (IllegalAccessException e) {</span>
+<span class="nc" id="L310">              throw new AvroRuntimeException(&quot;Failed to set &quot; + field);</span>
+<span class="nc" id="L311">            }</span>
+<span class="nc" id="L312">            return;</span>
+          }
+        }
+<span class="nc bnc" id="L315" title="All 2 branches missed.">        if (Optional.class.isAssignableFrom(accessor.getField().getType())) {</span>
+          try {
+<span class="nc" id="L317">            Object value = readWithoutConversion(oldDatum, field.schema(), in);</span>
+<span class="nc" id="L318">            accessor.set(record, Optional.ofNullable(value));</span>
+<span class="nc" id="L319">            return;</span>
+<span class="nc" id="L320">          } catch (IllegalAccessException e) {</span>
+<span class="nc" id="L321">            throw new AvroRuntimeException(&quot;Failed to set &quot; + field);</span>
+          }
+        }
+        try {
+<span class="nc" id="L325">          accessor.set(record, readWithoutConversion(oldDatum, field.schema(), in));</span>
+<span class="nc" id="L326">          return;</span>
+<span class="nc" id="L327">        } catch (IllegalAccessException e) {</span>
+<span class="nc" id="L328">          throw new AvroRuntimeException(&quot;Failed to set &quot; + field);</span>
+        }
+      }
+    }
+<span class="nc" id="L332">    super.readField(record, field, oldDatum, in, state);</span>
+<span class="nc" id="L333">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

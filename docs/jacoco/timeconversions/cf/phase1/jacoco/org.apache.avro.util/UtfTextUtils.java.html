@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UtfTextUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Avro</a> &gt; <a href="index.source.html" class="el_package">org.apache.avro.util</a> &gt; <span class="el_source">UtfTextUtils.java</span></div><h1>UtfTextUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.avro.util;
+
+import java.io.BufferedInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+
+/**
+ * Text utilities especially suited for UTF encoded bytes.
+ *
+ * &lt;p&gt;
+ * When the character set is unknown, methods in this class assume UTF encoded
+ * text and try to detect the UTF variant (8/16/32 bits, big/little endian),
+ * using the BOM (if present) or an educated guess assuming the first character
+ * is in the range U+0000-U+00FF. This heuristic works for all latin text based
+ * formats, which includes Avro IDL, JSON, XML, etc. If the heuristic fails,
+ * UTF-8 is assumed.
+ * &lt;/p&gt;
+ *
+ * @see &lt;a href=&quot;https://www.w3.org/TR/xml/#sec-guessing&quot;&gt;XML specification,
+ *      appendix F: Autodetection of Character Encodings (Non-Normative)&lt;/a&gt;
+ */
+<span class="nc" id="L43">public class UtfTextUtils {</span>
+  private static final int TRANSFER_BUFFER_SIZE = 4096;
+  /**
+   * JVM standard character set (but that doesn't have a constant in
+   * {@link StandardCharsets}) for UTF-32.
+   */
+<span class="nc" id="L49">  private static final Charset UTF_32 = Charset.forName(&quot;UTF-32&quot;);</span>
+  /**
+   * JVM standard character set (but that doesn't have a constant in
+   * {@link StandardCharsets}) for UTF-32BE.
+   */
+<span class="nc" id="L54">  private static final Charset UTF_32BE = Charset.forName(&quot;UTF-32BE&quot;);</span>
+  /**
+   * JVM standard character set (but that doesn't have a constant in
+   * {@link StandardCharsets}) for UTF-32LE.
+   */
+<span class="nc" id="L59">  private static final Charset UTF_32LE = Charset.forName(&quot;UTF-32LE&quot;);</span>
+
+  public static String asString(byte[] bytes, Charset charset) {
+<span class="nc bnc" id="L62" title="All 2 branches missed.">    if (charset == null) {</span>
+<span class="nc" id="L63">      charset = detectUtfCharset(bytes);</span>
+    }
+<span class="nc" id="L65">    return skipBOM(new String(bytes, charset));</span>
+  }
+
+  /**
+   * Reads the specified input stream as text. If {@code charset} is {@code null},
+   * the method will assume UTF encoded text and attempt to detect the appropriate
+   * charset.
+   *
+   * @param input   the input to read
+   * @param charset the character set of the input, if known
+   * @return all bytes, read into a string
+   * @throws IOException when reading the input fails for some reason
+   */
+  public static String readAllBytes(InputStream input, Charset charset) throws IOException {
+<span class="nc bnc" id="L79" title="All 2 branches missed.">    if (charset == null) {</span>
+<span class="nc" id="L80">      input = ensureMarkSupport(input);</span>
+<span class="nc" id="L81">      input.mark(4);</span>
+<span class="nc" id="L82">      byte[] buffer = new byte[4];</span>
+<span class="nc" id="L83">      int bytesRead = fillBuffer(input, buffer);</span>
+<span class="nc" id="L84">      input.reset();</span>
+
+<span class="nc" id="L86">      charset = detectUtfCharset0(buffer, bytesRead);</span>
+
+<span class="nc bnc" id="L88" title="All 2 branches missed.">      if (charset == null) {</span>
+<span class="nc" id="L89">        throw new IOException(&quot;Unsupported UCS-4 variant (neither UTF-32BE nor UTF32-LE)&quot;);</span>
+      }
+    }
+<span class="nc" id="L92">    Reader reader = new InputStreamReader(input, charset);</span>
+<span class="nc" id="L93">    return readAllChars(reader);</span>
+  }
+
+  private static InputStream ensureMarkSupport(InputStream input) {
+<span class="nc bnc" id="L97" title="All 2 branches missed.">    if (input.markSupported()) {</span>
+<span class="nc" id="L98">      return input;</span>
+    } else {
+<span class="nc" id="L100">      return new BufferedInputStream(input);</span>
+    }
+  }
+
+  private static int fillBuffer(InputStream in, byte[] buf) throws IOException {
+<span class="nc" id="L105">    int remaining = buf.length;</span>
+<span class="nc" id="L106">    int offset = 0;</span>
+<span class="nc bnc" id="L107" title="All 2 branches missed.">    while (remaining &gt; 0) {</span>
+<span class="nc" id="L108">      int bytesRead = in.read(buf, offset, remaining);</span>
+      // As remaining &gt; 0, bytesRead is either -1 or positive
+<span class="nc bnc" id="L110" title="All 2 branches missed.">      if (bytesRead == -1) {</span>
+<span class="nc" id="L111">        break;</span>
+      }
+<span class="nc" id="L113">      offset += bytesRead;</span>
+<span class="nc" id="L114">      remaining -= bytesRead;</span>
+<span class="nc" id="L115">    }</span>
+<span class="nc" id="L116">    return offset;</span>
+  }
+
+  public static String readAllChars(Reader input) throws IOException {
+<span class="nc" id="L120">    StringBuilder buffer = new StringBuilder();</span>
+<span class="nc" id="L121">    char[] charBuffer = new char[TRANSFER_BUFFER_SIZE];</span>
+    int charsRead;
+<span class="nc bnc" id="L123" title="All 2 branches missed.">    while ((charsRead = input.read(charBuffer, 0, TRANSFER_BUFFER_SIZE)) &gt;= 0) {</span>
+<span class="nc" id="L124">      buffer.append(charBuffer, 0, charsRead);</span>
+    }
+<span class="nc" id="L126">    return skipBOM(buffer);</span>
+  }
+
+  private static String skipBOM(CharSequence buffer) {
+<span class="nc bnc" id="L130" title="All 2 branches missed.">    if (buffer.charAt(0) == '\uFEFF') {</span>
+<span class="nc" id="L131">      return buffer.subSequence(1, buffer.length()).toString();</span>
+    }
+<span class="nc" id="L133">    return buffer.toString();</span>
+  }
+
+  /**
+   * Assuming UTF encoded bytes, detect the UTF variant (8/16/32 bits, big/little
+   * endian).
+   *
+   * &lt;p&gt;
+   * To ensure the most accurate detection, the algorithm requires at least 4
+   * bytes. One should only provide less than 4 bytes of data if that is all there
+   * is.
+   * &lt;/p&gt;
+   *
+   * &lt;p&gt;
+   * Detection is certain when a byte order mark (BOM) is used. Otherwise a
+   * heuristic is used, which works when the first character is from the first 256
+   * characters from the BMP (U+0000-U+00FF). This works for all latin-based
+   * textual formats, like Avro IDL, JSON, YAML, XML, etc.
+   * &lt;/p&gt;
+   *
+   * @param firstFewBytes the first few bytes of the text to detect the character
+   *                      set of
+   * @return the character set to use
+   */
+  public static Charset detectUtfCharset(byte[] firstFewBytes) {
+<span class="nc" id="L158">    Charset detectedCharset = detectUtfCharset0(firstFewBytes, firstFewBytes.length);</span>
+<span class="nc bnc" id="L159" title="All 2 branches missed.">    if (detectedCharset == null) {</span>
+<span class="nc" id="L160">      throw new IllegalArgumentException(&quot;Unsupported UCS-4 variant (neither UTF-32BE nor UTF32-LE)&quot;);</span>
+    }
+<span class="nc" id="L162">    return detectedCharset;</span>
+  }
+
+  private static Charset detectUtfCharset0(byte[] firstFewBytes, int numBytes) {
+    // spotless:off
+    /*
+     * Lookup table, adapted from https://www.w3.org/TR/xml/#sec-guessing
+     * It omits non-UTF encodings (the 2nd and 3rd rows from the end).
+     * Note that the order (with respect to UTF-32 &amp; UTF-16) is important!
+     *
+     * (the non-zero bytes encode the byte order mark, BOM)
+     *
+     * Match the 'magic bytes' in order, and take the first match:
+     * 00 00 FE FF -&gt; UTF-32 (be)
+     * FF FE 00 00 -&gt; UTF-32 (le)
+     * 00 00 FF FE -&gt; unsupported UCS-4 (byte order 2143)
+     * FE FF 00 00 -&gt; unsupported UCS-4 (byte order 3412)
+     * FE FF __ __ -&gt; UTF-16 (be)
+     * FF FE __ __ -&gt; UTF-16 (le)
+     * EF BB BF __ -&gt; UTF-8
+     * 00 00 00 __ -&gt; UTF-32BE
+     * __ 00 00 00 -&gt; UTF-32LE
+     * 00 00 __ 00 -&gt; unsupported UCS-4 (byte order 2143)
+     * 00 __ 00 00 -&gt; unsupported UCS-4 (byte order 3412)
+     * 00 __ __ __ -&gt; UTF-16BE
+     * __ 00 __ __ -&gt; UTF-16LE
+     * __ __ __ __ -&gt; UTF-8 (fallback)
+     */
+    // spotless:on
+<span class="nc" id="L191">    int quad = quad(firstFewBytes, numBytes);</span>
+<span class="nc" id="L192">    int word = quad &gt;&gt;&gt; 16;</span>
+<span class="nc bnc" id="L193" title="All 6 branches missed.">    if (numBytes &gt; 3 &amp;&amp; (quad == 0x0000FEFF || quad == 0xFFFE0000)) {</span>
+      // With BOM: UTF-32 (Charset handles BOM &amp; endianness)
+<span class="nc" id="L195">      return UTF_32;</span>
+<span class="nc bnc" id="L196" title="All 6 branches missed.">    } else if (numBytes &gt; 3 &amp;&amp; (quad == 0x0000FFFE || quad == 0xFEFF0000)) {</span>
+      // With BOM: unsupported UCS-4 encoding (byte order 2143 resp. 3412)
+<span class="nc" id="L198">      return null;</span>
+<span class="nc bnc" id="L199" title="All 6 branches missed.">    } else if (numBytes &gt; 1 &amp;&amp; (word == 0xFEFF || word == 0xFFFE)) {</span>
+      // With BOM: UTF-16 (Charset handles BOM &amp; endianness)
+<span class="nc" id="L201">      return StandardCharsets.UTF_16;</span>
+<span class="nc bnc" id="L202" title="All 4 branches missed.">    } else if (numBytes &gt; 2 &amp;&amp; quad &gt;&gt;&gt; 8 == 0xEFBBBF) {</span>
+      // With BOM: UTF-8 (Charset does not handle a BOM, so our caller must skip it)
+<span class="nc" id="L204">      return StandardCharsets.UTF_8;</span>
+<span class="nc bnc" id="L205" title="All 4 branches missed.">    } else if (numBytes &gt; 3 &amp;&amp; (quad &amp; 0xFFFFFF00) == 0) {</span>
+      // Without BOM (i.e., a guess)
+<span class="nc" id="L207">      return UTF_32BE;</span>
+<span class="nc bnc" id="L208" title="All 4 branches missed.">    } else if (numBytes &gt; 3 &amp;&amp; (quad &amp; 0x00FFFFFF) == 0) {</span>
+      // Without BOM (i.e., a guess)
+<span class="nc" id="L210">      return UTF_32LE;</span>
+<span class="nc bnc" id="L211" title="All 6 branches missed.">    } else if (numBytes &gt; 3 &amp;&amp; (quad &amp; 0xFFFF00FF) == 0 || (quad &amp; 0xFF00FFFF) == 0) {</span>
+      // Without BOM (i.e., a guess): unsupported UCS-4 encoding (byte order 2143
+      // resp. 3412)
+<span class="nc" id="L214">      return null;</span>
+<span class="nc bnc" id="L215" title="All 4 branches missed.">    } else if (numBytes &gt; 1 &amp;&amp; (word &amp; 0xFF00) == 0) {</span>
+      // Without BOM (i.e., a guess)
+<span class="nc" id="L217">      return StandardCharsets.UTF_16BE;</span>
+<span class="nc bnc" id="L218" title="All 4 branches missed.">    } else if (numBytes &gt; 1 &amp;&amp; (word &amp; 0x00FF) == 0) {</span>
+      // Without BOM (i.e., a guess)
+<span class="nc" id="L220">      return StandardCharsets.UTF_16LE;</span>
+    } else {
+      // Fallback
+<span class="nc" id="L223">      return StandardCharsets.UTF_8;</span>
+    }
+  }
+
+  private static int quad(byte[] bytes, int length) {
+<span class="nc" id="L228">    int quad = 0xFFFFFFFF;</span>
+<span class="nc bnc" id="L229" title="All 5 branches missed.">    switch (length) {</span>
+    default:
+<span class="nc" id="L231">      quad = (quad &amp; 0xFFFFFF00) | (bytes[3] &amp; 0xFF);</span>
+      // Fallthrough
+    case 3:
+<span class="nc" id="L234">      quad = (quad &amp; 0xFFFF00FF) | (bytes[2] &amp; 0xFF) &lt;&lt; 8;</span>
+      // Fallthrough
+    case 2:
+<span class="nc" id="L237">      quad = (quad &amp; 0xFF00FFFF) | (bytes[1] &amp; 0xFF) &lt;&lt; 16;</span>
+      // Fallthrough
+    case 1:
+<span class="nc" id="L240">      quad = (quad &amp; 0x00FFFFFF) | (bytes[0] &amp; 0xFF) &lt;&lt; 24;</span>
+      // Fallthrough
+    case 0:
+      break;
+    }
+<span class="nc" id="L245">    return quad;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

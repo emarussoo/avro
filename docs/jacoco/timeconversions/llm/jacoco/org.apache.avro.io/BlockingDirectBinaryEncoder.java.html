@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BlockingDirectBinaryEncoder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Avro</a> &gt; <a href="index.source.html" class="el_package">org.apache.avro.io</a> &gt; <span class="el_source">BlockingDirectBinaryEncoder.java</span></div><h1>BlockingDirectBinaryEncoder.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.avro.io;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+
+/**
+ * An {@link Encoder} for Avro's binary encoding that does not buffer output.
+ * &lt;p/&gt;
+ * This encoder does not buffer writes in contrast to
+ * {@link BufferedBinaryEncoder}. However, it is lighter-weight and useful when:
+ * The buffering in BufferedBinaryEncoder is not desired because you buffer a
+ * different level or the Encoder is very short-lived.
+ * &lt;/p&gt;
+ * The BlockingDirectBinaryEncoder will encode the number of bytes of the Map
+ * and Array blocks. This will allow to postpone the decoding, or skip over it
+ * at all.
+ * &lt;p/&gt;
+ * To construct, use
+ * {@link EncoderFactory#blockingDirectBinaryEncoder(OutputStream, BinaryEncoder)}
+ * &lt;p/&gt;
+ * {@link BlockingDirectBinaryEncoder} instances returned by this method are not
+ * thread-safe
+ *
+ * @see BinaryEncoder
+ * @see EncoderFactory
+ * @see Encoder
+ * @see Decoder
+ */
+public class BlockingDirectBinaryEncoder extends DirectBinaryEncoder {
+  private final ArrayList&lt;BufferOutputStream&gt; buffers;
+
+  private final ArrayDeque&lt;OutputStream&gt; stashedBuffers;
+
+<span class="nc" id="L55">  private int depth = 0;</span>
+
+  private final ArrayDeque&lt;Long&gt; blockItemCounts;
+
+  /**
+   * Create a writer that sends its output to the underlying stream
+   * &lt;code&gt;out&lt;/code&gt;.
+   *
+   * @param out The OutputStream to write to
+   */
+  public BlockingDirectBinaryEncoder(OutputStream out) {
+<span class="nc" id="L66">    super(out);</span>
+<span class="nc" id="L67">    this.buffers = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L68">    this.stashedBuffers = new ArrayDeque&lt;&gt;();</span>
+<span class="nc" id="L69">    this.blockItemCounts = new ArrayDeque&lt;&gt;();</span>
+<span class="nc" id="L70">  }</span>
+
+  private void startBlock() {
+<span class="nc" id="L73">    stashedBuffers.push(out);</span>
+<span class="nc bnc" id="L74" title="All 2 branches missed.">    if (this.buffers.size() &lt;= depth) {</span>
+<span class="nc" id="L75">      this.buffers.add(new BufferOutputStream());</span>
+    }
+<span class="nc" id="L77">    BufferOutputStream buf = buffers.get(depth);</span>
+<span class="nc" id="L78">    buf.reset();</span>
+<span class="nc" id="L79">    this.depth += 1;</span>
+<span class="nc" id="L80">    this.out = buf;</span>
+<span class="nc" id="L81">  }</span>
+
+  private void endBlock() {
+<span class="nc bnc" id="L84" title="All 2 branches missed.">    if (depth == 0) {</span>
+<span class="nc" id="L85">      throw new RuntimeException(&quot;Called endBlock, while not buffering a block&quot;);</span>
+    }
+<span class="nc" id="L87">    this.depth -= 1;</span>
+<span class="nc" id="L88">    out = stashedBuffers.pop();</span>
+<span class="nc" id="L89">    BufferOutputStream buffer = this.buffers.get(depth);</span>
+<span class="nc" id="L90">    long blockItemCount = blockItemCounts.pop();</span>
+<span class="nc bnc" id="L91" title="All 2 branches missed.">    if (blockItemCount &gt; 0) {</span>
+      try {
+        // Make it negative, so the reader knows that the number of bytes is coming
+<span class="nc" id="L94">        writeLong(-blockItemCount);</span>
+<span class="nc" id="L95">        writeLong(buffer.size());</span>
+<span class="nc" id="L96">        writeFixed(buffer.toBufferWithoutCopy());</span>
+<span class="nc" id="L97">      } catch (IOException e) {</span>
+<span class="nc" id="L98">        throw new RuntimeException(e);</span>
+<span class="nc" id="L99">      }</span>
+    }
+<span class="nc" id="L101">  }</span>
+
+  @Override
+  public void setItemCount(long itemCount) throws IOException {
+<span class="nc" id="L105">    blockItemCounts.push(itemCount);</span>
+<span class="nc" id="L106">  }</span>
+
+  @Override
+  public void writeArrayStart() throws IOException {
+<span class="nc" id="L110">    startBlock();</span>
+<span class="nc" id="L111">  }</span>
+
+  @Override
+  public void writeArrayEnd() throws IOException {
+<span class="nc" id="L115">    endBlock();</span>
+    // Writes another zero to indicate that this is the last block
+<span class="nc" id="L117">    super.writeArrayEnd();</span>
+<span class="nc" id="L118">  }</span>
+
+  @Override
+  public void writeMapStart() throws IOException {
+<span class="nc" id="L122">    startBlock();</span>
+<span class="nc" id="L123">  }</span>
+
+  @Override
+  public void writeMapEnd() throws IOException {
+<span class="nc" id="L127">    endBlock();</span>
+    // Writes another zero to indicate that this is the last block
+<span class="nc" id="L129">    super.writeMapEnd();</span>
+<span class="nc" id="L130">  }</span>
+
+  private static class BufferOutputStream extends ByteArrayOutputStream {
+<span class="nc" id="L133">    BufferOutputStream() {</span>
+<span class="nc" id="L134">    }</span>
+
+    ByteBuffer toBufferWithoutCopy() {
+<span class="nc" id="L137">      return ByteBuffer.wrap(buf, 0, count);</span>
+    }
+
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>
