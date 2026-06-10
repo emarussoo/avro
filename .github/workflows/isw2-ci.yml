@@ -80,3 +80,18 @@ jobs:
             -Dtest='ISW2TimeConversionsBBTest,ISW2TimeConversionsRNDTest,ISW2TimeConversionsESTest,ISW2TimeConversionsLLMTest,ISW2TimeConversionsCFTest' \
             -Dinvoker.skip=true \
             -Dmaven.build.cache.enabled=false
+          
+
+      - name: Run ISW2 TimeConversions integration tests
+        working-directory: lang/java/avro
+        run: |
+          mvn clean test-compile \
+            -Dinvoker.skip=true \
+            -Dmaven.build.cache.enabled=false
+
+            rm -f target/test-classes/META-INF/services/org.apache.avro.Conversion
+
+            mvn failsafe:integration-test failsafe:verify \
+              -Dit.test='ISW2TimeConversionsIT' \
+              -Dinvoker.skip=true \
+              -Dmaven.build.cache.enabled=false
