@@ -1,8 +1,12 @@
 package org.apache.avro.data;
 
+import org.apache.avro.LogicalType;
+import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.Ignore;
+
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -12,6 +16,37 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 public class ISW2TimeConversionsBBTest {
+
+  private static Schema DATE_SCHEMA;
+  private static Schema TIME_MILLIS_SCHEMA;
+  private static Schema TIME_MICROS_SCHEMA;
+  private static Schema TIMESTAMP_MILLIS_SCHEMA;
+  private static Schema TIMESTAMP_MICROS_SCHEMA;
+  private static Schema TIMESTAMP_NANOS_SCHEMA;
+
+  private static LogicalType DATE_TYPE;
+  private static LogicalType TIME_MILLIS_TYPE;
+  private static LogicalType TIME_MICROS_TYPE;
+  private static LogicalType TIMESTAMP_MILLIS_TYPE;
+  private static LogicalType TIMESTAMP_MICROS_TYPE;
+  private static LogicalType TIMESTAMP_NANOS_TYPE;
+
+  @BeforeClass
+  public static void createSchemasAndLogicalTypes() {
+    DATE_TYPE = LogicalTypes.date();
+    TIME_MILLIS_TYPE = LogicalTypes.timeMillis();
+    TIME_MICROS_TYPE = LogicalTypes.timeMicros();
+    TIMESTAMP_MILLIS_TYPE = LogicalTypes.timestampMillis();
+    TIMESTAMP_MICROS_TYPE = LogicalTypes.timestampMicros();
+    TIMESTAMP_NANOS_TYPE = LogicalTypes.timestampNanos();
+
+    DATE_SCHEMA = DATE_TYPE.addToSchema(Schema.create(Schema.Type.INT));
+    TIME_MILLIS_SCHEMA = TIME_MILLIS_TYPE.addToSchema(Schema.create(Schema.Type.INT));
+    TIME_MICROS_SCHEMA = TIME_MICROS_TYPE.addToSchema(Schema.create(Schema.Type.LONG));
+    TIMESTAMP_MILLIS_SCHEMA = TIMESTAMP_MILLIS_TYPE.addToSchema(Schema.create(Schema.Type.LONG));
+    TIMESTAMP_MICROS_SCHEMA = TIMESTAMP_MICROS_TYPE.addToSchema(Schema.create(Schema.Type.LONG));
+    TIMESTAMP_NANOS_SCHEMA = TIMESTAMP_NANOS_TYPE.addToSchema(Schema.create(Schema.Type.LONG));
+  }
 
   /*
    * BB1 - DateConversion su valori intorno all'epoch.
@@ -26,13 +61,13 @@ public class ISW2TimeConversionsBBTest {
   public void dateConversionShouldHandleValuesAroundEpoch() {
     TimeConversions.DateConversion conversion = new TimeConversions.DateConversion();
 
-    assertEquals(LocalDate.of(1969, 12, 31), conversion.fromInt(-1, null, null));
-    assertEquals(LocalDate.of(1970, 1, 1), conversion.fromInt(0, null, null));
-    assertEquals(LocalDate.of(1970, 1, 2), conversion.fromInt(1, null, null));
+    assertEquals(LocalDate.of(1969, 12, 31), conversion.fromInt(-1, DATE_SCHEMA, DATE_TYPE));
+    assertEquals(LocalDate.of(1970, 1, 1), conversion.fromInt(0, DATE_SCHEMA, DATE_TYPE));
+    assertEquals(LocalDate.of(1970, 1, 2), conversion.fromInt(1, DATE_SCHEMA, DATE_TYPE));
 
-    assertEquals(Integer.valueOf(-1), conversion.toInt(LocalDate.of(1969, 12, 31), null, null));
-    assertEquals(Integer.valueOf(0), conversion.toInt(LocalDate.of(1970, 1, 1), null, null));
-    assertEquals(Integer.valueOf(1), conversion.toInt(LocalDate.of(1970, 1, 2), null, null));
+    assertEquals(Integer.valueOf(-1), conversion.toInt(LocalDate.of(1969, 12, 31), DATE_SCHEMA, DATE_TYPE));
+    assertEquals(Integer.valueOf(0), conversion.toInt(LocalDate.of(1970, 1, 1), DATE_SCHEMA, DATE_TYPE));
+    assertEquals(Integer.valueOf(1), conversion.toInt(LocalDate.of(1970, 1, 2), DATE_SCHEMA, DATE_TYPE));
   }
 
   /*
@@ -55,13 +90,15 @@ public class ISW2TimeConversionsBBTest {
     int expectedMiddleMillis = (int) TimeUnit.NANOSECONDS.toMillis(middleOfDay.toNanoOfDay());
     int expectedEndMillis = (int) TimeUnit.NANOSECONDS.toMillis(endOfDay.toNanoOfDay());
 
-    assertEquals(Integer.valueOf(expectedMidnightMillis), conversion.toInt(midnight, null, null));
-    assertEquals(Integer.valueOf(expectedMiddleMillis), conversion.toInt(middleOfDay, null, null));
-    assertEquals(Integer.valueOf(expectedEndMillis), conversion.toInt(endOfDay, null, null));
+    assertEquals(Integer.valueOf(expectedMidnightMillis),
+        conversion.toInt(midnight, TIME_MILLIS_SCHEMA, TIME_MILLIS_TYPE));
+    assertEquals(Integer.valueOf(expectedMiddleMillis),
+        conversion.toInt(middleOfDay, TIME_MILLIS_SCHEMA, TIME_MILLIS_TYPE));
+    assertEquals(Integer.valueOf(expectedEndMillis), conversion.toInt(endOfDay, TIME_MILLIS_SCHEMA, TIME_MILLIS_TYPE));
 
-    assertEquals(midnight, conversion.fromInt(expectedMidnightMillis, null, null));
-    assertEquals(middleOfDay, conversion.fromInt(expectedMiddleMillis, null, null));
-    assertEquals(endOfDay, conversion.fromInt(expectedEndMillis, null, null));
+    assertEquals(midnight, conversion.fromInt(expectedMidnightMillis, TIME_MILLIS_SCHEMA, TIME_MILLIS_TYPE));
+    assertEquals(middleOfDay, conversion.fromInt(expectedMiddleMillis, TIME_MILLIS_SCHEMA, TIME_MILLIS_TYPE));
+    assertEquals(endOfDay, conversion.fromInt(expectedEndMillis, TIME_MILLIS_SCHEMA, TIME_MILLIS_TYPE));
   }
 
   /*
@@ -84,13 +121,15 @@ public class ISW2TimeConversionsBBTest {
     long expectedMiddleMicros = TimeUnit.NANOSECONDS.toMicros(middleOfDay.toNanoOfDay());
     long expectedEndMicros = TimeUnit.NANOSECONDS.toMicros(endOfDay.toNanoOfDay());
 
-    assertEquals(Long.valueOf(expectedMidnightMicros), conversion.toLong(midnight, null, null));
-    assertEquals(Long.valueOf(expectedMiddleMicros), conversion.toLong(middleOfDay, null, null));
-    assertEquals(Long.valueOf(expectedEndMicros), conversion.toLong(endOfDay, null, null));
+    assertEquals(Long.valueOf(expectedMidnightMicros),
+        conversion.toLong(midnight, TIME_MICROS_SCHEMA, TIME_MICROS_TYPE));
+    assertEquals(Long.valueOf(expectedMiddleMicros),
+        conversion.toLong(middleOfDay, TIME_MICROS_SCHEMA, TIME_MICROS_TYPE));
+    assertEquals(Long.valueOf(expectedEndMicros), conversion.toLong(endOfDay, TIME_MICROS_SCHEMA, TIME_MICROS_TYPE));
 
-    assertEquals(midnight, conversion.fromLong(expectedMidnightMicros, null, null));
-    assertEquals(middleOfDay, conversion.fromLong(expectedMiddleMicros, null, null));
-    assertEquals(endOfDay, conversion.fromLong(expectedEndMicros, null, null));
+    assertEquals(midnight, conversion.fromLong(expectedMidnightMicros, TIME_MICROS_SCHEMA, TIME_MICROS_TYPE));
+    assertEquals(middleOfDay, conversion.fromLong(expectedMiddleMicros, TIME_MICROS_SCHEMA, TIME_MICROS_TYPE));
+    assertEquals(endOfDay, conversion.fromLong(expectedEndMicros, TIME_MICROS_SCHEMA, TIME_MICROS_TYPE));
   }
 
   /*
@@ -111,13 +150,13 @@ public class ISW2TimeConversionsBBTest {
     Instant epoch = Instant.EPOCH;
     Instant afterEpoch = Instant.ofEpochMilli(1);
 
-    assertEquals(Long.valueOf(-1L), conversion.toLong(beforeEpoch, null, null));
-    assertEquals(Long.valueOf(0L), conversion.toLong(epoch, null, null));
-    assertEquals(Long.valueOf(1L), conversion.toLong(afterEpoch, null, null));
+    assertEquals(Long.valueOf(-1L), conversion.toLong(beforeEpoch, TIMESTAMP_MILLIS_SCHEMA, TIMESTAMP_MILLIS_TYPE));
+    assertEquals(Long.valueOf(0L), conversion.toLong(epoch, TIMESTAMP_MILLIS_SCHEMA, TIMESTAMP_MILLIS_TYPE));
+    assertEquals(Long.valueOf(1L), conversion.toLong(afterEpoch, TIMESTAMP_MILLIS_SCHEMA, TIMESTAMP_MILLIS_TYPE));
 
-    assertEquals(beforeEpoch, conversion.fromLong(-1L, null, null));
-    assertEquals(epoch, conversion.fromLong(0L, null, null));
-    assertEquals(afterEpoch, conversion.fromLong(1L, null, null));
+    assertEquals(beforeEpoch, conversion.fromLong(-1L, TIMESTAMP_MILLIS_SCHEMA, TIMESTAMP_MILLIS_TYPE));
+    assertEquals(epoch, conversion.fromLong(0L, TIMESTAMP_MILLIS_SCHEMA, TIMESTAMP_MILLIS_TYPE));
+    assertEquals(afterEpoch, conversion.fromLong(1L, TIMESTAMP_MILLIS_SCHEMA, TIMESTAMP_MILLIS_TYPE));
   }
 
   /*
@@ -140,11 +179,14 @@ public class ISW2TimeConversionsBBTest {
     Instant positiveInstant = Instant.ofEpochSecond(1, 123_456_000);
     Instant negativeFractionalInstant = Instant.ofEpochSecond(-1, 500_000_000);
 
-    assertEquals(Long.valueOf(1_123_456L), conversion.toLong(positiveInstant, null, null));
-    assertEquals(positiveInstant, conversion.fromLong(1_123_456L, null, null));
+    assertEquals(Long.valueOf(1_123_456L),
+        conversion.toLong(positiveInstant, TIMESTAMP_MICROS_SCHEMA, TIMESTAMP_MICROS_TYPE));
+    assertEquals(positiveInstant, conversion.fromLong(1_123_456L, TIMESTAMP_MICROS_SCHEMA, TIMESTAMP_MICROS_TYPE));
 
-    assertEquals(Long.valueOf(-500_000L), conversion.toLong(negativeFractionalInstant, null, null));
-    assertEquals(negativeFractionalInstant, conversion.fromLong(-500_000L, null, null));
+    assertEquals(Long.valueOf(-500_000L),
+        conversion.toLong(negativeFractionalInstant, TIMESTAMP_MICROS_SCHEMA, TIMESTAMP_MICROS_TYPE));
+    assertEquals(negativeFractionalInstant,
+        conversion.fromLong(-500_000L, TIMESTAMP_MICROS_SCHEMA, TIMESTAMP_MICROS_TYPE));
   }
 
   /*
@@ -162,8 +204,9 @@ public class ISW2TimeConversionsBBTest {
 
     Instant instant = Instant.ofEpochSecond(1, 123_456_789);
 
-    assertEquals(Long.valueOf(1_123_456_789L), conversion.toLong(instant, null, null));
-    assertEquals(instant, conversion.fromLong(1_123_456_789L, null, null));
+    assertEquals(Long.valueOf(1_123_456_789L),
+        conversion.toLong(instant, TIMESTAMP_NANOS_SCHEMA, TIMESTAMP_NANOS_TYPE));
+    assertEquals(instant, conversion.fromLong(1_123_456_789L, TIMESTAMP_NANOS_SCHEMA, TIMESTAMP_NANOS_TYPE));
   }
 
   /*
@@ -172,12 +215,12 @@ public class ISW2TimeConversionsBBTest {
 
   @Ignore("Bug-exposing test: documents current failure in TimestampNanosConversion with negative fractional instants")
   @Test
-  public void toLong_negativeInstantWithPositiveNanos_returnsNegativeNanos() {
+  public void timestampNanosConversionShouldHandleNegativeInstantWithPositiveNanos() {
     TimeConversions.TimestampNanosConversion conversion = new TimeConversions.TimestampNanosConversion();
 
     Instant instant = Instant.ofEpochSecond(-1, 500_000_000);
 
-    assertEquals(Long.valueOf(-500_000_000L), conversion.toLong(instant, null, null));
+    assertEquals(Long.valueOf(-500_000_000L), conversion.toLong(instant, TIMESTAMP_NANOS_SCHEMA, TIMESTAMP_NANOS_TYPE));
   }
 
   /*
