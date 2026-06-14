@@ -1,0 +1,351 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JsonEncoder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Avro</a> &gt; <a href="index.source.html" class="el_package">org.apache.avro.io</a> &gt; <span class="el_source">JsonEncoder.java</span></div><h1>JsonEncoder.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.avro.io;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.BitSet;
+import java.util.EnumSet;
+import java.util.Objects;
+import java.util.Set;
+
+import org.apache.avro.AvroTypeException;
+import org.apache.avro.Schema;
+import org.apache.avro.io.parsing.JsonGrammarGenerator;
+import org.apache.avro.io.parsing.Parser;
+import org.apache.avro.io.parsing.Symbol;
+import org.apache.avro.util.Utf8;
+import com.fasterxml.jackson.core.JsonEncoding;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.PrettyPrinter;
+import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
+import com.fasterxml.jackson.core.util.MinimalPrettyPrinter;
+
+/**
+ * An {@link Encoder} for Avro's JSON data encoding.
+ * &lt;/p&gt;
+ * Construct using {@link EncoderFactory}.
+ * &lt;/p&gt;
+ * JsonEncoder buffers output, and data may not appear on the output until
+ * {@link Encoder#flush()} is called.
+ * &lt;/p&gt;
+ * JsonEncoder is not thread-safe.
+ */
+public class JsonEncoder extends ParsingEncoder implements Parser.ActionHandler {
+<span class="nc" id="L53">  private static final String LINE_SEPARATOR = System.lineSeparator();</span>
+  final Parser parser;
+  private JsonGenerator out;
+<span class="nc" id="L56">  private boolean includeNamespace = true;</span>
+
+  /**
+   * Has anything been written into the collections?
+   */
+<span class="nc" id="L61">  protected BitSet isEmpty = new BitSet();</span>
+
+  JsonEncoder(Schema sc, OutputStream out) throws IOException {
+<span class="nc" id="L64">    this(sc, getJsonGenerator(out, EnumSet.noneOf(JsonOptions.class)));</span>
+<span class="nc" id="L65">  }</span>
+
+  JsonEncoder(Schema sc, OutputStream out, boolean pretty) throws IOException {
+<span class="nc bnc" id="L68" title="All 2 branches missed.">    this(sc, getJsonGenerator(out, pretty ? EnumSet.of(JsonOptions.Pretty) : EnumSet.noneOf(JsonOptions.class)));</span>
+<span class="nc" id="L69">  }</span>
+
+  JsonEncoder(Schema sc, OutputStream out, Set&lt;JsonOptions&gt; options) throws IOException {
+<span class="nc" id="L72">    this(sc, getJsonGenerator(out, options));</span>
+<span class="nc" id="L73">  }</span>
+
+<span class="nc" id="L75">  JsonEncoder(Schema sc, JsonGenerator out) throws IOException {</span>
+<span class="nc" id="L76">    configure(out);</span>
+<span class="nc" id="L77">    this.parser = new Parser(new JsonGrammarGenerator().generate(sc), this);</span>
+<span class="nc" id="L78">  }</span>
+
+  @Override
+  public void flush() throws IOException {
+<span class="nc" id="L82">    parser.processImplicitActions();</span>
+<span class="nc bnc" id="L83" title="All 2 branches missed.">    if (out != null) {</span>
+<span class="nc" id="L84">      out.flush();</span>
+    }
+<span class="nc" id="L86">  }</span>
+
+<span class="nc" id="L88">  enum JsonOptions {</span>
+<span class="nc" id="L89">    Pretty,</span>
+
+    // Prevent underlying OutputStream to be flush for optimisation purpose.
+<span class="nc" id="L92">    NoFlushStream</span>
+  }
+
+  // by default, one object per line.
+  // with pretty option use default pretty printer with root line separator.
+  private static JsonGenerator getJsonGenerator(OutputStream out, Set&lt;JsonOptions&gt; options) throws IOException {
+<span class="nc" id="L98">    Objects.requireNonNull(out, &quot;OutputStream cannot be null&quot;);</span>
+<span class="nc" id="L99">    JsonGenerator g = new JsonFactory().createGenerator(out, JsonEncoding.UTF8);</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">    if (options.contains(JsonOptions.NoFlushStream)) {</span>
+<span class="nc" id="L101">      g.configure(JsonGenerator.Feature.FLUSH_PASSED_TO_STREAM, false);</span>
+    }
+    final PrettyPrinter pp;
+<span class="nc bnc" id="L104" title="All 2 branches missed.">    if (options.contains(JsonOptions.Pretty)) {</span>
+<span class="nc" id="L105">      pp = new DefaultPrettyPrinter(LINE_SEPARATOR);</span>
+    } else {
+<span class="nc" id="L107">      pp = new MinimalPrettyPrinter(LINE_SEPARATOR);</span>
+    }
+<span class="nc" id="L109">    g.setPrettyPrinter(pp);</span>
+<span class="nc" id="L110">    return g;</span>
+  }
+
+  public boolean isIncludeNamespace() {
+<span class="nc" id="L114">    return includeNamespace;</span>
+  }
+
+  public void setIncludeNamespace(final boolean includeNamespace) {
+<span class="nc" id="L118">    this.includeNamespace = includeNamespace;</span>
+<span class="nc" id="L119">  }</span>
+
+  /**
+   * Reconfigures this JsonEncoder to use the output stream provided.
+   * &lt;p/&gt;
+   * If the OutputStream provided is null, a NullPointerException is thrown.
+   * &lt;p/&gt;
+   * Otherwise, this JsonEncoder will flush its current output and then
+   * reconfigure its output to use a default UTF8 JsonGenerator that writes to the
+   * provided OutputStream.
+   *
+   * @param out The OutputStream to direct output to. Cannot be null.
+   * @throws IOException
+   * @throws NullPointerException if {@code out} is {@code null}
+   * @return this JsonEncoder
+   */
+  public JsonEncoder configure(OutputStream out) throws IOException {
+<span class="nc" id="L136">    return this.configure(out, true);</span>
+  }
+
+  /**
+   * Reconfigures this JsonEncoder to use the output stream provided.
+   * &lt;p/&gt;
+   * If the OutputStream provided is null, a NullPointerException is thrown.
+   * &lt;p/&gt;
+   * Otherwise, this JsonEncoder will flush its current output and then
+   * reconfigure its output to use a default UTF8 JsonGenerator that writes to the
+   * provided OutputStream.
+   *
+   * @param out The OutputStream to direct output to. Cannot be null.
+   * @throws IOException
+   * @throws NullPointerException if {@code out} is {@code null}
+   * @return this JsonEncoder
+   */
+  public JsonEncoder configure(OutputStream out, boolean autoflush) throws IOException {
+<span class="nc" id="L154">    EnumSet&lt;JsonOptions&gt; jsonOptions = EnumSet.noneOf(JsonOptions.class);</span>
+<span class="nc bnc" id="L155" title="All 2 branches missed.">    if (!autoflush) {</span>
+<span class="nc" id="L156">      jsonOptions.add(JsonOptions.NoFlushStream);</span>
+    }
+<span class="nc" id="L158">    this.configure(getJsonGenerator(out, jsonOptions));</span>
+<span class="nc" id="L159">    return this;</span>
+  }
+
+  /**
+   * Reconfigures this JsonEncoder to output to the JsonGenerator provided.
+   * &lt;p/&gt;
+   * If the JsonGenerator provided is null, a NullPointerException is thrown.
+   * &lt;p/&gt;
+   * Otherwise, this JsonEncoder will flush its current output and then
+   * reconfigure its output to use the provided JsonGenerator.
+   *
+   * @param generator The JsonGenerator to direct output to. Cannot be null.
+   * @throws IOException
+   * @throws NullPointerException if {@code generator} is {@code null}
+   */
+  private void configure(JsonGenerator generator) throws IOException {
+<span class="nc" id="L175">    Objects.requireNonNull(generator, &quot;JsonGenerator cannot be null&quot;);</span>
+<span class="nc bnc" id="L176" title="All 2 branches missed.">    if (null != parser) {</span>
+<span class="nc" id="L177">      flush();</span>
+    }
+<span class="nc" id="L179">    this.out = generator;</span>
+<span class="nc" id="L180">  }</span>
+
+  @Override
+  public void writeNull() throws IOException {
+<span class="nc" id="L184">    parser.advance(Symbol.NULL);</span>
+<span class="nc" id="L185">    out.writeNull();</span>
+<span class="nc" id="L186">  }</span>
+
+  @Override
+  public void writeBoolean(boolean b) throws IOException {
+<span class="nc" id="L190">    parser.advance(Symbol.BOOLEAN);</span>
+<span class="nc" id="L191">    out.writeBoolean(b);</span>
+<span class="nc" id="L192">  }</span>
+
+  @Override
+  public void writeInt(int n) throws IOException {
+<span class="nc" id="L196">    parser.advance(Symbol.INT);</span>
+<span class="nc" id="L197">    out.writeNumber(n);</span>
+<span class="nc" id="L198">  }</span>
+
+  @Override
+  public void writeLong(long n) throws IOException {
+<span class="nc" id="L202">    parser.advance(Symbol.LONG);</span>
+<span class="nc" id="L203">    out.writeNumber(n);</span>
+<span class="nc" id="L204">  }</span>
+
+  @Override
+  public void writeFloat(float f) throws IOException {
+<span class="nc" id="L208">    parser.advance(Symbol.FLOAT);</span>
+<span class="nc" id="L209">    out.writeNumber(f);</span>
+<span class="nc" id="L210">  }</span>
+
+  @Override
+  public void writeDouble(double d) throws IOException {
+<span class="nc" id="L214">    parser.advance(Symbol.DOUBLE);</span>
+<span class="nc" id="L215">    out.writeNumber(d);</span>
+<span class="nc" id="L216">  }</span>
+
+  @Override
+  public void writeString(Utf8 utf8) throws IOException {
+<span class="nc" id="L220">    writeString(utf8.toString());</span>
+<span class="nc" id="L221">  }</span>
+
+  @Override
+  public void writeString(String str) throws IOException {
+<span class="nc" id="L225">    parser.advance(Symbol.STRING);</span>
+<span class="nc bnc" id="L226" title="All 2 branches missed.">    if (parser.topSymbol() == Symbol.MAP_KEY_MARKER) {</span>
+<span class="nc" id="L227">      parser.advance(Symbol.MAP_KEY_MARKER);</span>
+<span class="nc" id="L228">      out.writeFieldName(str);</span>
+    } else {
+<span class="nc" id="L230">      out.writeString(str);</span>
+    }
+<span class="nc" id="L232">  }</span>
+
+  @Override
+  public void writeBytes(ByteBuffer bytes) throws IOException {
+<span class="nc bnc" id="L236" title="All 2 branches missed.">    if (bytes.hasArray()) {</span>
+<span class="nc" id="L237">      writeBytes(bytes.array(), bytes.position(), bytes.remaining());</span>
+    } else {
+<span class="nc" id="L239">      byte[] b = new byte[bytes.remaining()];</span>
+<span class="nc" id="L240">      bytes.duplicate().get(b);</span>
+<span class="nc" id="L241">      writeBytes(b);</span>
+    }
+<span class="nc" id="L243">  }</span>
+
+  @Override
+  public void writeBytes(byte[] bytes, int start, int len) throws IOException {
+<span class="nc" id="L247">    parser.advance(Symbol.BYTES);</span>
+<span class="nc" id="L248">    writeByteArray(bytes, start, len);</span>
+<span class="nc" id="L249">  }</span>
+
+  private void writeByteArray(byte[] bytes, int start, int len) throws IOException {
+<span class="nc" id="L252">    out.writeString(new String(bytes, start, len, StandardCharsets.ISO_8859_1));</span>
+<span class="nc" id="L253">  }</span>
+
+  @Override
+  public void writeFixed(byte[] bytes, int start, int len) throws IOException {
+<span class="nc" id="L257">    parser.advance(Symbol.FIXED);</span>
+<span class="nc" id="L258">    Symbol.IntCheckAction top = (Symbol.IntCheckAction) parser.popSymbol();</span>
+<span class="nc bnc" id="L259" title="All 2 branches missed.">    if (len != top.size) {</span>
+<span class="nc" id="L260">      throw new AvroTypeException(</span>
+          &quot;Incorrect length for fixed binary: expected &quot; + top.size + &quot; but received &quot; + len + &quot; bytes.&quot;);
+    }
+<span class="nc" id="L263">    writeByteArray(bytes, start, len);</span>
+<span class="nc" id="L264">  }</span>
+
+  @Override
+  public void writeEnum(int e) throws IOException {
+<span class="nc" id="L268">    parser.advance(Symbol.ENUM);</span>
+<span class="nc" id="L269">    Symbol.EnumLabelsAction top = (Symbol.EnumLabelsAction) parser.popSymbol();</span>
+<span class="nc bnc" id="L270" title="All 4 branches missed.">    if (e &lt; 0 || e &gt;= top.size) {</span>
+<span class="nc" id="L271">      throw new AvroTypeException(&quot;Enumeration out of range: max is &quot; + top.size + &quot; but received &quot; + e);</span>
+    }
+<span class="nc" id="L273">    out.writeString(top.getLabel(e));</span>
+<span class="nc" id="L274">  }</span>
+
+  @Override
+  public void writeArrayStart() throws IOException {
+<span class="nc" id="L278">    parser.advance(Symbol.ARRAY_START);</span>
+<span class="nc" id="L279">    out.writeStartArray();</span>
+<span class="nc" id="L280">    push();</span>
+<span class="nc" id="L281">    isEmpty.set(depth());</span>
+<span class="nc" id="L282">  }</span>
+
+  @Override
+  public void writeArrayEnd() throws IOException {
+<span class="nc bnc" id="L286" title="All 2 branches missed.">    if (!isEmpty.get(pos)) {</span>
+<span class="nc" id="L287">      parser.advance(Symbol.ITEM_END);</span>
+    }
+<span class="nc" id="L289">    pop();</span>
+<span class="nc" id="L290">    parser.advance(Symbol.ARRAY_END);</span>
+<span class="nc" id="L291">    out.writeEndArray();</span>
+<span class="nc" id="L292">  }</span>
+
+  @Override
+  public void writeMapStart() throws IOException {
+<span class="nc" id="L296">    push();</span>
+<span class="nc" id="L297">    isEmpty.set(depth());</span>
+
+<span class="nc" id="L299">    parser.advance(Symbol.MAP_START);</span>
+<span class="nc" id="L300">    out.writeStartObject();</span>
+<span class="nc" id="L301">  }</span>
+
+  @Override
+  public void writeMapEnd() throws IOException {
+<span class="nc bnc" id="L305" title="All 2 branches missed.">    if (!isEmpty.get(pos)) {</span>
+<span class="nc" id="L306">      parser.advance(Symbol.ITEM_END);</span>
+    }
+<span class="nc" id="L308">    pop();</span>
+
+<span class="nc" id="L310">    parser.advance(Symbol.MAP_END);</span>
+<span class="nc" id="L311">    out.writeEndObject();</span>
+<span class="nc" id="L312">  }</span>
+
+  @Override
+  public void startItem() throws IOException {
+<span class="nc bnc" id="L316" title="All 2 branches missed.">    if (!isEmpty.get(pos)) {</span>
+<span class="nc" id="L317">      parser.advance(Symbol.ITEM_END);</span>
+    }
+<span class="nc" id="L319">    super.startItem();</span>
+<span class="nc" id="L320">    isEmpty.clear(depth());</span>
+<span class="nc" id="L321">  }</span>
+
+  @Override
+  public void writeIndex(int unionIndex) throws IOException {
+<span class="nc" id="L325">    parser.advance(Symbol.UNION);</span>
+<span class="nc" id="L326">    Symbol.Alternative top = (Symbol.Alternative) parser.popSymbol();</span>
+<span class="nc" id="L327">    Symbol symbol = top.getSymbol(unionIndex);</span>
+<span class="nc bnc" id="L328" title="All 4 branches missed.">    if (symbol != Symbol.NULL &amp;&amp; includeNamespace) {</span>
+<span class="nc" id="L329">      out.writeStartObject();</span>
+<span class="nc" id="L330">      out.writeFieldName(top.getLabel(unionIndex));</span>
+<span class="nc" id="L331">      parser.pushSymbol(Symbol.UNION_END);</span>
+    }
+<span class="nc" id="L333">    parser.pushSymbol(symbol);</span>
+<span class="nc" id="L334">  }</span>
+
+  @Override
+  public Symbol doAction(Symbol input, Symbol top) throws IOException {
+<span class="nc bnc" id="L338" title="All 2 branches missed.">    if (top instanceof Symbol.FieldAdjustAction) {</span>
+<span class="nc" id="L339">      Symbol.FieldAdjustAction fa = (Symbol.FieldAdjustAction) top;</span>
+<span class="nc" id="L340">      out.writeFieldName(fa.fname);</span>
+<span class="nc bnc" id="L341" title="All 2 branches missed.">    } else if (top == Symbol.RECORD_START) {</span>
+<span class="nc" id="L342">      out.writeStartObject();</span>
+<span class="nc bnc" id="L343" title="All 4 branches missed.">    } else if (top == Symbol.RECORD_END || top == Symbol.UNION_END) {</span>
+<span class="nc" id="L344">      out.writeEndObject();</span>
+<span class="nc bnc" id="L345" title="All 2 branches missed.">    } else if (top != Symbol.FIELD_END) {</span>
+<span class="nc" id="L346">      throw new AvroTypeException(&quot;Unknown action symbol &quot; + top);</span>
+    }
+<span class="nc" id="L348">    return null;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

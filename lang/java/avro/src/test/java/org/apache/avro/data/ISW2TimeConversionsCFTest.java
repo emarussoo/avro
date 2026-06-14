@@ -2,17 +2,64 @@ package org.apache.avro.data;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import org.junit.Ignore;
+
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
-import java.time.LocalDate;
+
+import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
+import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class ISW2TimeConversionsCFTest {
+
+  private static Schema DATE_SCHEMA;
+  private static Schema TIME_MILLIS_SCHEMA;
+  private static Schema TIME_MICROS_SCHEMA;
+  private static Schema TIMESTAMP_MILLIS_SCHEMA;
+  private static Schema TIMESTAMP_MICROS_SCHEMA;
+  private static Schema TIMESTAMP_NANOS_SCHEMA;
+  private static Schema LOCAL_TIMESTAMP_MILLIS_SCHEMA;
+  private static Schema LOCAL_TIMESTAMP_MICROS_SCHEMA;
+  private static Schema LOCAL_TIMESTAMP_NANOS_SCHEMA;
+
+  private static LogicalType DATE_TYPE;
+  private static LogicalType TIME_MILLIS_TYPE;
+  private static LogicalType TIME_MICROS_TYPE;
+  private static LogicalType TIMESTAMP_MILLIS_TYPE;
+  private static LogicalType TIMESTAMP_MICROS_TYPE;
+  private static LogicalType TIMESTAMP_NANOS_TYPE;
+  private static LogicalType LOCAL_TIMESTAMP_MILLIS_TYPE;
+  private static LogicalType LOCAL_TIMESTAMP_MICROS_TYPE;
+  private static LogicalType LOCAL_TIMESTAMP_NANOS_TYPE;
+
+  @BeforeClass
+  public static void createSchemasAndLogicalTypes() {
+    DATE_TYPE = LogicalTypes.date();
+    TIME_MILLIS_TYPE = LogicalTypes.timeMillis();
+    TIME_MICROS_TYPE = LogicalTypes.timeMicros();
+    TIMESTAMP_MILLIS_TYPE = LogicalTypes.timestampMillis();
+    TIMESTAMP_MICROS_TYPE = LogicalTypes.timestampMicros();
+    TIMESTAMP_NANOS_TYPE = LogicalTypes.timestampNanos();
+    LOCAL_TIMESTAMP_MILLIS_TYPE = LogicalTypes.localTimestampMillis();
+    LOCAL_TIMESTAMP_MICROS_TYPE = LogicalTypes.localTimestampMicros();
+    LOCAL_TIMESTAMP_NANOS_TYPE = LogicalTypes.localTimestampNanos();
+
+    DATE_SCHEMA = DATE_TYPE.addToSchema(Schema.create(Schema.Type.INT));
+    TIME_MILLIS_SCHEMA = TIME_MILLIS_TYPE.addToSchema(Schema.create(Schema.Type.INT));
+    TIME_MICROS_SCHEMA = TIME_MICROS_TYPE.addToSchema(Schema.create(Schema.Type.LONG));
+    TIMESTAMP_MILLIS_SCHEMA = TIMESTAMP_MILLIS_TYPE.addToSchema(Schema.create(Schema.Type.LONG));
+    TIMESTAMP_MICROS_SCHEMA = TIMESTAMP_MICROS_TYPE.addToSchema(Schema.create(Schema.Type.LONG));
+    TIMESTAMP_NANOS_SCHEMA = TIMESTAMP_NANOS_TYPE.addToSchema(Schema.create(Schema.Type.LONG));
+    LOCAL_TIMESTAMP_MILLIS_SCHEMA = LOCAL_TIMESTAMP_MILLIS_TYPE.addToSchema(Schema.create(Schema.Type.LONG));
+    LOCAL_TIMESTAMP_MICROS_SCHEMA = LOCAL_TIMESTAMP_MICROS_TYPE.addToSchema(Schema.create(Schema.Type.LONG));
+    LOCAL_TIMESTAMP_NANOS_SCHEMA = LOCAL_TIMESTAMP_NANOS_TYPE.addToSchema(Schema.create(Schema.Type.LONG));
+  }
 
   /*
    * CF1 - LocalTimestampMillisConversion intorno all'epoch locale.
@@ -28,12 +75,14 @@ public class ISW2TimeConversionsCFTest {
     LocalDateTime epoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0, 0);
     LocalDateTime oneMillisecondAfterEpoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0, 1_000_000);
 
-    assertEquals(epoch, conversion.fromLong(0L, null, LogicalTypes.localTimestampMillis()));
-    assertEquals(oneMillisecondAfterEpoch, conversion.fromLong(1L, null, LogicalTypes.localTimestampMillis()));
+    assertEquals(epoch, conversion.fromLong(0L, LOCAL_TIMESTAMP_MILLIS_SCHEMA, LOCAL_TIMESTAMP_MILLIS_TYPE));
+    assertEquals(oneMillisecondAfterEpoch,
+        conversion.fromLong(1L, LOCAL_TIMESTAMP_MILLIS_SCHEMA, LOCAL_TIMESTAMP_MILLIS_TYPE));
 
-    assertEquals(Long.valueOf(0L), conversion.toLong(epoch, null, LogicalTypes.localTimestampMillis()));
+    assertEquals(Long.valueOf(0L),
+        conversion.toLong(epoch, LOCAL_TIMESTAMP_MILLIS_SCHEMA, LOCAL_TIMESTAMP_MILLIS_TYPE));
     assertEquals(Long.valueOf(1L),
-        conversion.toLong(oneMillisecondAfterEpoch, null, LogicalTypes.localTimestampMillis()));
+        conversion.toLong(oneMillisecondAfterEpoch, LOCAL_TIMESTAMP_MILLIS_SCHEMA, LOCAL_TIMESTAMP_MILLIS_TYPE));
   }
 
   /*
@@ -48,9 +97,10 @@ public class ISW2TimeConversionsCFTest {
 
     LocalDateTime oneMillisecondBeforeEpoch = LocalDateTime.of(1969, 12, 31, 23, 59, 59, 999_000_000);
 
-    assertEquals(oneMillisecondBeforeEpoch, conversion.fromLong(-1L, null, LogicalTypes.localTimestampMillis()));
+    assertEquals(oneMillisecondBeforeEpoch,
+        conversion.fromLong(-1L, LOCAL_TIMESTAMP_MILLIS_SCHEMA, LOCAL_TIMESTAMP_MILLIS_TYPE));
     assertEquals(Long.valueOf(-1L),
-        conversion.toLong(oneMillisecondBeforeEpoch, null, LogicalTypes.localTimestampMillis()));
+        conversion.toLong(oneMillisecondBeforeEpoch, LOCAL_TIMESTAMP_MILLIS_SCHEMA, LOCAL_TIMESTAMP_MILLIS_TYPE));
   }
 
   /*
@@ -67,12 +117,14 @@ public class ISW2TimeConversionsCFTest {
     LocalDateTime epoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0, 0);
     LocalDateTime oneMillisecondAfterEpoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0, 1_000_000);
 
-    assertEquals(epoch, conversion.fromLong(0L, null, LogicalTypes.localTimestampMicros()));
-    assertEquals(oneMillisecondAfterEpoch, conversion.fromLong(1_000L, null, LogicalTypes.localTimestampMicros()));
+    assertEquals(epoch, conversion.fromLong(0L, LOCAL_TIMESTAMP_MICROS_SCHEMA, LOCAL_TIMESTAMP_MICROS_TYPE));
+    assertEquals(oneMillisecondAfterEpoch,
+        conversion.fromLong(1_000L, LOCAL_TIMESTAMP_MICROS_SCHEMA, LOCAL_TIMESTAMP_MICROS_TYPE));
 
-    assertEquals(Long.valueOf(0L), conversion.toLong(epoch, null, LogicalTypes.localTimestampMicros()));
+    assertEquals(Long.valueOf(0L),
+        conversion.toLong(epoch, LOCAL_TIMESTAMP_MICROS_SCHEMA, LOCAL_TIMESTAMP_MICROS_TYPE));
     assertEquals(Long.valueOf(1_000L),
-        conversion.toLong(oneMillisecondAfterEpoch, null, LogicalTypes.localTimestampMicros()));
+        conversion.toLong(oneMillisecondAfterEpoch, LOCAL_TIMESTAMP_MICROS_SCHEMA, LOCAL_TIMESTAMP_MICROS_TYPE));
   }
 
   /*
@@ -87,9 +139,10 @@ public class ISW2TimeConversionsCFTest {
 
     LocalDateTime oneMicrosecondBeforeEpoch = LocalDateTime.of(1969, 12, 31, 23, 59, 59, 999_999_000);
 
-    assertEquals(oneMicrosecondBeforeEpoch, conversion.fromLong(-1L, null, LogicalTypes.localTimestampMicros()));
+    assertEquals(oneMicrosecondBeforeEpoch,
+        conversion.fromLong(-1L, LOCAL_TIMESTAMP_MICROS_SCHEMA, LOCAL_TIMESTAMP_MICROS_TYPE));
     assertEquals(Long.valueOf(-1L),
-        conversion.toLong(oneMicrosecondBeforeEpoch, null, LogicalTypes.localTimestampMicros()));
+        conversion.toLong(oneMicrosecondBeforeEpoch, LOCAL_TIMESTAMP_MICROS_SCHEMA, LOCAL_TIMESTAMP_MICROS_TYPE));
   }
 
   /*
@@ -106,12 +159,13 @@ public class ISW2TimeConversionsCFTest {
     LocalDateTime epoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0, 0);
     LocalDateTime oneHundredNanosAfterEpoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0, 100);
 
-    assertEquals(epoch, conversion.fromLong(0L, null, LogicalTypes.localTimestampNanos()));
-    assertEquals(oneHundredNanosAfterEpoch, conversion.fromLong(100L, null, LogicalTypes.localTimestampNanos()));
+    assertEquals(epoch, conversion.fromLong(0L, LOCAL_TIMESTAMP_NANOS_SCHEMA, LOCAL_TIMESTAMP_NANOS_TYPE));
+    assertEquals(oneHundredNanosAfterEpoch,
+        conversion.fromLong(100L, LOCAL_TIMESTAMP_NANOS_SCHEMA, LOCAL_TIMESTAMP_NANOS_TYPE));
 
-    assertEquals(Long.valueOf(0L), conversion.toLong(epoch, null, LogicalTypes.localTimestampNanos()));
+    assertEquals(Long.valueOf(0L), conversion.toLong(epoch, LOCAL_TIMESTAMP_NANOS_SCHEMA, LOCAL_TIMESTAMP_NANOS_TYPE));
     assertEquals(Long.valueOf(100L),
-        conversion.toLong(oneHundredNanosAfterEpoch, null, LogicalTypes.localTimestampNanos()));
+        conversion.toLong(oneHundredNanosAfterEpoch, LOCAL_TIMESTAMP_NANOS_SCHEMA, LOCAL_TIMESTAMP_NANOS_TYPE));
   }
 
   /*
@@ -127,9 +181,10 @@ public class ISW2TimeConversionsCFTest {
 
     LocalDateTime oneNanosecondBeforeEpoch = LocalDateTime.of(1969, 12, 31, 23, 59, 59, 999_999_999);
 
-    assertEquals(oneNanosecondBeforeEpoch, conversion.fromLong(-1L, null, LogicalTypes.localTimestampNanos()));
+    assertEquals(oneNanosecondBeforeEpoch,
+        conversion.fromLong(-1L, LOCAL_TIMESTAMP_NANOS_SCHEMA, LOCAL_TIMESTAMP_NANOS_TYPE));
     assertEquals(Long.valueOf(-1L),
-        conversion.toLong(oneNanosecondBeforeEpoch, null, LogicalTypes.localTimestampNanos()));
+        conversion.toLong(oneNanosecondBeforeEpoch, LOCAL_TIMESTAMP_NANOS_SCHEMA, LOCAL_TIMESTAMP_NANOS_TYPE));
   }
 
   /*
@@ -145,8 +200,10 @@ public class ISW2TimeConversionsCFTest {
 
     Instant oneSecondBeforeEpoch = Instant.ofEpochSecond(-1L, 0L);
 
-    assertEquals(Long.valueOf(-1_000_000_000L), conversion.toLong(oneSecondBeforeEpoch, null, null));
-    assertEquals(oneSecondBeforeEpoch, conversion.fromLong(-1_000_000_000L, null, null));
+    assertEquals(Long.valueOf(-1_000_000_000L),
+        conversion.toLong(oneSecondBeforeEpoch, TIMESTAMP_NANOS_SCHEMA, TIMESTAMP_NANOS_TYPE));
+    assertEquals(oneSecondBeforeEpoch,
+        conversion.fromLong(-1_000_000_000L, TIMESTAMP_NANOS_SCHEMA, TIMESTAMP_NANOS_TYPE));
   }
 
   /*
@@ -161,8 +218,10 @@ public class ISW2TimeConversionsCFTest {
 
     Instant oneSecondBeforeEpoch = Instant.ofEpochSecond(-1L, 0L);
 
-    assertEquals(Long.valueOf(-1_000_000L), conversion.toLong(oneSecondBeforeEpoch, null, null));
-    assertEquals(oneSecondBeforeEpoch, conversion.fromLong(-1_000_000L, null, null));
+    assertEquals(Long.valueOf(-1_000_000L),
+        conversion.toLong(oneSecondBeforeEpoch, TIMESTAMP_MICROS_SCHEMA, TIMESTAMP_MICROS_TYPE));
+    assertEquals(oneSecondBeforeEpoch,
+        conversion.fromLong(-1_000_000L, TIMESTAMP_MICROS_SCHEMA, TIMESTAMP_MICROS_TYPE));
   }
 
   /*
@@ -176,10 +235,10 @@ public class ISW2TimeConversionsCFTest {
     TimeConversions.TimeMillisConversion conversion = new TimeConversions.TimeMillisConversion();
 
     LocalTime time = LocalTime.of(1, 2, 3, 4_999_999);
-    Integer millis = conversion.toInt(time, null, null);
+    Integer millis = conversion.toInt(time, TIME_MILLIS_SCHEMA, TIME_MILLIS_TYPE);
 
     assertEquals(Integer.valueOf(3_723_004), millis);
-    assertEquals(LocalTime.of(1, 2, 3, 4_000_000), conversion.fromInt(millis, null, null));
+    assertEquals(LocalTime.of(1, 2, 3, 4_000_000), conversion.fromInt(millis, TIME_MILLIS_SCHEMA, TIME_MILLIS_TYPE));
   }
 
   /*
@@ -193,10 +252,10 @@ public class ISW2TimeConversionsCFTest {
     TimeConversions.TimeMicrosConversion conversion = new TimeConversions.TimeMicrosConversion();
 
     LocalTime time = LocalTime.of(1, 2, 3, 4_005_999);
-    Long micros = conversion.toLong(time, null, null);
+    Long micros = conversion.toLong(time, TIME_MICROS_SCHEMA, TIME_MICROS_TYPE);
 
     assertEquals(Long.valueOf(3_723_004_005L), micros);
-    assertEquals(LocalTime.of(1, 2, 3, 4_005_000), conversion.fromLong(micros, null, null));
+    assertEquals(LocalTime.of(1, 2, 3, 4_005_000), conversion.fromLong(micros, TIME_MICROS_SCHEMA, TIME_MICROS_TYPE));
   }
 
   /*
@@ -210,10 +269,11 @@ public class ISW2TimeConversionsCFTest {
     TimeConversions.TimestampMillisConversion conversion = new TimeConversions.TimestampMillisConversion();
 
     Instant timestamp = Instant.parse("2020-01-02T03:04:05.678901234Z");
-    Long millis = conversion.toLong(timestamp, null, null);
+    Long millis = conversion.toLong(timestamp, TIMESTAMP_MILLIS_SCHEMA, TIMESTAMP_MILLIS_TYPE);
 
     assertEquals(Long.valueOf(timestamp.toEpochMilli()), millis);
-    assertEquals(Instant.parse("2020-01-02T03:04:05.678Z"), conversion.fromLong(millis, null, null));
+    assertEquals(Instant.parse("2020-01-02T03:04:05.678Z"),
+        conversion.fromLong(millis, TIMESTAMP_MILLIS_SCHEMA, TIMESTAMP_MILLIS_TYPE));
   }
 
   /*
@@ -227,10 +287,11 @@ public class ISW2TimeConversionsCFTest {
     TimeConversions.TimestampMicrosConversion conversion = new TimeConversions.TimestampMicrosConversion();
 
     Instant timestamp = Instant.parse("2020-01-02T03:04:05.678901234Z");
-    Long micros = conversion.toLong(timestamp, null, null);
+    Long micros = conversion.toLong(timestamp, TIMESTAMP_MICROS_SCHEMA, TIMESTAMP_MICROS_TYPE);
 
     assertEquals(Long.valueOf(ChronoUnit.MICROS.between(Instant.EPOCH, timestamp)), micros);
-    assertEquals(Instant.parse("2020-01-02T03:04:05.678901Z"), conversion.fromLong(micros, null, null));
+    assertEquals(Instant.parse("2020-01-02T03:04:05.678901Z"),
+        conversion.fromLong(micros, TIMESTAMP_MICROS_SCHEMA, TIMESTAMP_MICROS_TYPE));
   }
 
   /*
