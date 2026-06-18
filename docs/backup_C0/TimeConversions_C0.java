@@ -30,7 +30,7 @@ import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.concurrent.TimeUnit;
 
-public class TimeConversions_C0 {
+public class TimeConversions {
   public static class DateConversion extends Conversion<LocalDate> {
 
     @Override

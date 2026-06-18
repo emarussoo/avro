@@ -7,7 +7,7 @@
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
  *
- * https://www.apache.org/licenses/LICENSE-2.0
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,29 +15,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.avro.data;
 
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
-import java.util.concurrent.TimeUnit;
+package org.apache.avro.data;
 
 import org.apache.avro.Conversion;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneOffset;
+import java.util.concurrent.TimeUnit;
+
 public class TimeConversions {
-  private static final long MICROS_PER_SECOND = 1_000_000L;
-  private static final long NANOS_PER_SECOND = 1_000_000_000L;
-
-  public TimeConversions() {
-  }
-
   public static class DateConversion extends Conversion<LocalDate> {
+
     @Override
     public Class<LocalDate> getConvertedType() {
       return LocalDate.class;
@@ -55,17 +50,14 @@ public class TimeConversions {
 
     @Override
     public Integer toInt(LocalDate date, Schema schema, LogicalType type) {
-      return Math.toIntExact(date.toEpochDay());
+      long epochDays = date.toEpochDay();
+
+      return (int) epochDays;
     }
 
     @Override
     public Schema getRecommendedSchema() {
       return LogicalTypes.date().addToSchema(Schema.create(Schema.Type.INT));
-    }
-
-    @Override
-    public String adjustAndSetValue(String varName, String valParamName) {
-      return varName + " = " + valParamName + ";";
     }
   }
 
@@ -81,23 +73,23 @@ public class TimeConversions {
     }
 
     @Override
+    public String adjustAndSetValue(String varName, String valParamName) {
+      return varName + " = " + valParamName + ".truncatedTo(java.time.temporal.ChronoUnit.MILLIS);";
+    }
+
+    @Override
     public LocalTime fromInt(Integer millisFromMidnight, Schema schema, LogicalType type) {
       return LocalTime.ofNanoOfDay(TimeUnit.MILLISECONDS.toNanos(millisFromMidnight));
     }
 
     @Override
     public Integer toInt(LocalTime time, Schema schema, LogicalType type) {
-      return Math.toIntExact(TimeUnit.NANOSECONDS.toMillis(time.toNanoOfDay()));
+      return (int) TimeUnit.NANOSECONDS.toMillis(time.toNanoOfDay());
     }
 
     @Override
     public Schema getRecommendedSchema() {
       return LogicalTypes.timeMillis().addToSchema(Schema.create(Schema.Type.INT));
-    }
-
-    @Override
-    public String adjustAndSetValue(String varName, String valParamName) {
-      return varName + " = " + valParamName + ".truncatedTo(" + ChronoUnit.class.getName() + ".MILLIS);";
     }
   }
 
@@ -110,6 +102,11 @@ public class TimeConversions {
     @Override
     public String getLogicalTypeName() {
       return "time-micros";
+    }
+
+    @Override
+    public String adjustAndSetValue(String varName, String valParamName) {
+      return varName + " = " + valParamName + ".truncatedTo(java.time.temporal.ChronoUnit.MICROS);";
     }
 
     @Override
@@ -126,11 +123,6 @@ public class TimeConversions {
     public Schema getRecommendedSchema() {
       return LogicalTypes.timeMicros().addToSchema(Schema.create(Schema.Type.LONG));
     }
-
-    @Override
-    public String adjustAndSetValue(String varName, String valParamName) {
-      return varName + " = " + valParamName + ".truncatedTo(" + ChronoUnit.class.getName() + ".MICROS);";
-    }
   }
 
   public static class TimestampMillisConversion extends Conversion<Instant> {
@@ -145,23 +137,23 @@ public class TimeConversions {
     }
 
     @Override
+    public String adjustAndSetValue(String varName, String valParamName) {
+      return varName + " = " + valParamName + ".truncatedTo(java.time.temporal.ChronoUnit.MILLIS);";
+    }
+
+    @Override
     public Instant fromLong(Long millisFromEpoch, Schema schema, LogicalType type) {
       return Instant.ofEpochMilli(millisFromEpoch);
     }
 
     @Override
-    public Long toLong(Instant instant, Schema schema, LogicalType type) {
-      return instant.toEpochMilli();
+    public Long toLong(Instant timestamp, Schema schema, LogicalType type) {
+      return timestamp.toEpochMilli();
     }
 
     @Override
     public Schema getRecommendedSchema() {
       return LogicalTypes.timestampMillis().addToSchema(Schema.create(Schema.Type.LONG));
-    }
-
-    @Override
-    public String adjustAndSetValue(String varName, String valParamName) {
-      return varName + " = " + valParamName + ".truncatedTo(" + ChronoUnit.class.getName() + ".MILLIS);";
     }
   }
 
@@ -177,26 +169,38 @@ public class TimeConversions {
     }
 
     @Override
+    public String adjustAndSetValue(String varName, String valParamName) {
+      return varName + " = " + valParamName + ".truncatedTo(java.time.temporal.ChronoUnit.MICROS);";
+    }
+
+    @Override
     public Instant fromLong(Long microsFromEpoch, Schema schema, LogicalType type) {
-      long epochSeconds = microsFromEpoch / MICROS_PER_SECOND;
-      long nanoAdjustment = (microsFromEpoch % MICROS_PER_SECOND) * 1_000L;
+      long epochSeconds = microsFromEpoch / (1_000_000L);
+      long nanoAdjustment = (microsFromEpoch % (1_000_000L)) * 1_000L;
+
       return Instant.ofEpochSecond(epochSeconds, nanoAdjustment);
     }
 
     @Override
     public Long toLong(Instant instant, Schema schema, LogicalType type) {
-      long secondsAsMicros = Math.multiplyExact(instant.getEpochSecond(), MICROS_PER_SECOND);
-      return Math.addExact(secondsAsMicros, TimeUnit.NANOSECONDS.toMicros(instant.getNano()));
+      long seconds = instant.getEpochSecond();
+      int nanos = instant.getNano();
+
+      if (seconds < 0 && nanos > 0) {
+        long micros = Math.multiplyExact(seconds + 1, 1_000_000L);
+        long adjustment = (nanos / 1_000L) - 1_000_000;
+
+        return Math.addExact(micros, adjustment);
+      } else {
+        long micros = Math.multiplyExact(seconds, 1_000_000L);
+
+        return Math.addExact(micros, nanos / 1_000L);
+      }
     }
 
     @Override
     public Schema getRecommendedSchema() {
       return LogicalTypes.timestampMicros().addToSchema(Schema.create(Schema.Type.LONG));
-    }
-
-    @Override
-    public String adjustAndSetValue(String varName, String valParamName) {
-      return varName + " = " + valParamName + ".truncatedTo(" + ChronoUnit.class.getName() + ".MICROS);";
     }
   }
 
@@ -212,26 +216,38 @@ public class TimeConversions {
     }
 
     @Override
-    public Instant fromLong(Long nanosFromEpoch, Schema schema, LogicalType type) {
-      long epochSeconds = nanosFromEpoch / NANOS_PER_SECOND;
-      long nanoAdjustment = nanosFromEpoch % NANOS_PER_SECOND;
+    public String adjustAndSetValue(String varName, String valParamName) {
+      return varName + " = " + valParamName + ".truncatedTo(java.time.temporal.ChronoUnit.NANOS);";
+    }
+
+    @Override
+    public Instant fromLong(Long microsFromEpoch, Schema schema, LogicalType type) {
+      long epochSeconds = microsFromEpoch / 1_000_000_000L;
+      long nanoAdjustment = microsFromEpoch % 1_000_000_000L;
+
       return Instant.ofEpochSecond(epochSeconds, nanoAdjustment);
     }
 
     @Override
     public Long toLong(Instant instant, Schema schema, LogicalType type) {
-      long secondsAsNanos = Math.multiplyExact(instant.getEpochSecond(), NANOS_PER_SECOND);
-      return Math.addExact(secondsAsNanos, instant.getNano());
+      long seconds = instant.getEpochSecond();
+      int nanos = instant.getNano();
+
+      if (seconds < 0 && nanos > 0) {
+        long micros = Math.multiplyExact(seconds + 1, 1_000_000_000L);
+        long adjustment = nanos - 1_000_000;
+
+        return Math.addExact(micros, adjustment);
+      } else {
+        long micros = Math.multiplyExact(seconds, 1_000_000_000L);
+
+        return Math.addExact(micros, nanos);
+      }
     }
 
     @Override
     public Schema getRecommendedSchema() {
       return LogicalTypes.timestampNanos().addToSchema(Schema.create(Schema.Type.LONG));
-    }
-
-    @Override
-    public String adjustAndSetValue(String varName, String valParamName) {
-      return varName + " = " + valParamName + ";";
     }
   }
 
@@ -250,22 +266,19 @@ public class TimeConversions {
 
     @Override
     public LocalDateTime fromLong(Long millisFromEpoch, Schema schema, LogicalType type) {
-      return LocalDateTime.ofInstant(timestampMillisConversion.fromLong(millisFromEpoch, schema, type), ZoneOffset.UTC);
+      Instant instant = timestampMillisConversion.fromLong(millisFromEpoch, schema, type);
+      return LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
     }
 
     @Override
     public Long toLong(LocalDateTime timestamp, Schema schema, LogicalType type) {
-      return timestampMillisConversion.toLong(timestamp.toInstant(ZoneOffset.UTC), schema, type);
+      Instant instant = timestamp.toInstant(ZoneOffset.UTC);
+      return timestampMillisConversion.toLong(instant, schema, type);
     }
 
     @Override
     public Schema getRecommendedSchema() {
       return LogicalTypes.localTimestampMillis().addToSchema(Schema.create(Schema.Type.LONG));
-    }
-
-    @Override
-    public String adjustAndSetValue(String varName, String valParamName) {
-      return varName + " = " + valParamName + ".truncatedTo(" + ChronoUnit.class.getName() + ".MILLIS);";
     }
   }
 
@@ -284,22 +297,19 @@ public class TimeConversions {
 
     @Override
     public LocalDateTime fromLong(Long microsFromEpoch, Schema schema, LogicalType type) {
-      return LocalDateTime.ofInstant(timestampMicrosConversion.fromLong(microsFromEpoch, schema, type), ZoneOffset.UTC);
+      Instant instant = timestampMicrosConversion.fromLong(microsFromEpoch, schema, type);
+      return LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
     }
 
     @Override
     public Long toLong(LocalDateTime timestamp, Schema schema, LogicalType type) {
-      return timestampMicrosConversion.toLong(timestamp.toInstant(ZoneOffset.UTC), schema, type);
+      Instant instant = timestamp.toInstant(ZoneOffset.UTC);
+      return timestampMicrosConversion.toLong(instant, schema, type);
     }
 
     @Override
     public Schema getRecommendedSchema() {
       return LogicalTypes.localTimestampMicros().addToSchema(Schema.create(Schema.Type.LONG));
-    }
-
-    @Override
-    public String adjustAndSetValue(String varName, String valParamName) {
-      return varName + " = " + valParamName + ".truncatedTo(" + ChronoUnit.class.getName() + ".MICROS);";
     }
   }
 
@@ -317,23 +327,20 @@ public class TimeConversions {
     }
 
     @Override
-    public LocalDateTime fromLong(Long nanosFromEpoch, Schema schema, LogicalType type) {
-      return LocalDateTime.ofInstant(timestampNanosConversion.fromLong(nanosFromEpoch, schema, type), ZoneOffset.UTC);
+    public LocalDateTime fromLong(Long microsFromEpoch, Schema schema, LogicalType type) {
+      Instant instant = timestampNanosConversion.fromLong(microsFromEpoch, schema, type);
+      return LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
     }
 
     @Override
     public Long toLong(LocalDateTime timestamp, Schema schema, LogicalType type) {
-      return timestampNanosConversion.toLong(timestamp.toInstant(ZoneOffset.UTC), schema, type);
+      Instant instant = timestamp.toInstant(ZoneOffset.UTC);
+      return timestampNanosConversion.toLong(instant, schema, type);
     }
 
     @Override
     public Schema getRecommendedSchema() {
       return LogicalTypes.localTimestampNanos().addToSchema(Schema.create(Schema.Type.LONG));
-    }
-
-    @Override
-    public String adjustAndSetValue(String varName, String valParamName) {
-      return varName + " = " + valParamName + ";";
     }
   }
 }
