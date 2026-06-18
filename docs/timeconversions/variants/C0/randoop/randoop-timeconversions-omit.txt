@@ -1,0 +1,16 @@
+.*fromBoolean.*
+.*fromBytes.*
+.*fromCharSequence.*
+.*fromDouble.*
+.*fromFloat.*
+.*fromRecord.*
+.*toArray.*
+.*toBoolean.*
+.*toBytes.*
+.*toCharSequence.*
+.*toDouble.*
+.*toEnumSymbol.*
+.*toFixed.*
+.*toFloat.*
+.*toMap.*
+.*toRecord.*

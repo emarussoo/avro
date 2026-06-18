@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DataFileReader.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Avro</a> &gt; <a href="index.source.html" class="el_package">org.apache.avro.file</a> &gt; <span class="el_source">DataFileReader.java</span></div><h1>DataFileReader.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.avro.file;
+
+import org.apache.avro.InvalidAvroMagicException;
+import org.apache.avro.io.DatumReader;
+import org.apache.avro.io.DecoderFactory;
+import org.apache.commons.io.IOUtils;
+
+import java.io.EOFException;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Arrays;
+
+import static org.apache.avro.file.DataFileConstants.MAGIC;
+import static org.apache.avro.file.DataFileConstants.SYNC_SIZE;
+
+/**
+ * Random access to files written with {@link DataFileWriter}.
+ *
+ * @see DataFileWriter
+ */
+public class DataFileReader&lt;D&gt; extends DataFileStream&lt;D&gt; implements FileReader&lt;D&gt; {
+  private final SeekableInputStream sin;
+  private long blockStart;
+  private int[] partialMatchTable;
+
+  /** Open a reader for a file. */
+  public static &lt;D&gt; FileReader&lt;D&gt; openReader(File file, DatumReader&lt;D&gt; reader) throws IOException {
+<span class="nc" id="L46">    SeekableFileInput input = new SeekableFileInput(file);</span>
+    try {
+<span class="nc" id="L48">      return openReader(input, reader);</span>
+<span class="nc" id="L49">    } catch (final Throwable e) {</span>
+<span class="nc" id="L50">      IOUtils.closeQuietly(input);</span>
+<span class="nc" id="L51">      throw e;</span>
+    }
+  }
+
+  /** Open a reader for a file. */
+  public static &lt;D&gt; FileReader&lt;D&gt; openReader(SeekableInput in, DatumReader&lt;D&gt; reader) throws IOException {
+<span class="nc bnc" id="L57" title="All 2 branches missed.">    if (in.length() &lt; MAGIC.length)</span>
+<span class="nc" id="L58">      throw new InvalidAvroMagicException(&quot;Not an Avro data file&quot;);</span>
+
+    // read magic header
+<span class="nc" id="L61">    byte[] magic = new byte[MAGIC.length];</span>
+<span class="nc" id="L62">    in.seek(0);</span>
+<span class="nc" id="L63">    int offset = 0;</span>
+<span class="nc" id="L64">    int length = magic.length;</span>
+<span class="nc bnc" id="L65" title="All 2 branches missed.">    while (length &gt; 0) {</span>
+<span class="nc" id="L66">      int bytesRead = in.read(magic, offset, length);</span>
+<span class="nc bnc" id="L67" title="All 2 branches missed.">      if (bytesRead &lt; 0)</span>
+<span class="nc" id="L68">        throw new EOFException(&quot;Unexpected EOF with &quot; + length + &quot; bytes remaining to read&quot;);</span>
+
+<span class="nc" id="L70">      length -= bytesRead;</span>
+<span class="nc" id="L71">      offset += bytesRead;</span>
+<span class="nc" id="L72">    }</span>
+
+<span class="nc bnc" id="L74" title="All 2 branches missed.">    if (Arrays.equals(MAGIC, magic)) // current format</span>
+<span class="nc" id="L75">      return new DataFileReader&lt;&gt;(in, reader, magic);</span>
+<span class="nc bnc" id="L76" title="All 2 branches missed.">    if (Arrays.equals(DataFileReader12.MAGIC, magic)) // 1.2 format</span>
+<span class="nc" id="L77">      return new DataFileReader12&lt;&gt;(in, reader);</span>
+
+<span class="nc" id="L79">    throw new InvalidAvroMagicException(&quot;Not an Avro data file&quot;);</span>
+  }
+
+  /**
+   * Construct a reader for a file at the current position of the input, without
+   * reading the header.
+   *
+   * @param sync True to read forward to the next sync point after opening, false
+   *             to assume that the input is already at a valid sync point.
+   */
+  public static &lt;D&gt; DataFileReader&lt;D&gt; openReader(SeekableInput in, DatumReader&lt;D&gt; reader, Header header, boolean sync)
+      throws IOException {
+<span class="nc" id="L91">    DataFileReader&lt;D&gt; dreader = new DataFileReader&lt;&gt;(in, reader, header);</span>
+    // seek/sync to an (assumed) valid position
+<span class="nc bnc" id="L93" title="All 2 branches missed.">    if (sync)</span>
+<span class="nc" id="L94">      dreader.sync(in.tell());</span>
+    else
+<span class="nc" id="L96">      dreader.seek(in.tell());</span>
+<span class="nc" id="L97">    return dreader;</span>
+  }
+
+  /**
+   * Construct a reader for a file. For example,if you want to read a file
+   * record,you need to close the resource. You can use try-with-resource as
+   * follows:
+   *
+   * &lt;pre&gt;
+   * try (FileReader&lt;User&gt; dataFileReader =
+   * DataFileReader.openReader(file,datumReader)) { //Consume the reader } catch
+   * (IOException e) { throw new RunTimeIOException(e,&quot;Failed to read metadata for
+   * file: %s&quot;, file); }
+   *
+   * &lt;pre/&gt;
+   */
+  public DataFileReader(File file, DatumReader&lt;D&gt; reader) throws IOException {
+<span class="nc" id="L114">    this(new SeekableFileInput(file), reader, true, null);</span>
+<span class="nc" id="L115">  }</span>
+
+  /**
+   * Construct a reader for a file. For example,if you want to read a file
+   * record,you need to close the resource. You can use try-with-resource as
+   * follows:
+   *
+   * &lt;pre&gt;
+   * try (FileReader&lt;User&gt; dataFileReader =
+   * DataFileReader.openReader(file,datumReader)) { //Consume the reader } catch
+   * (IOException e) { throw new RunTimeIOException(e,&quot;Failed to read metadata for
+   * file: %s&quot;, file); }
+   *
+   * &lt;pre/&gt;
+   */
+  public DataFileReader(SeekableInput sin, DatumReader&lt;D&gt; reader) throws IOException {
+<span class="nc" id="L131">    this(sin, reader, false, null);</span>
+<span class="nc" id="L132">  }</span>
+
+  private DataFileReader(SeekableInput sin, DatumReader&lt;D&gt; reader, byte[] magic) throws IOException {
+<span class="nc" id="L135">    this(sin, reader, false, magic);</span>
+<span class="nc" id="L136">  }</span>
+
+  /** Construct a reader for a file. Please close resource files yourself. */
+  protected DataFileReader(SeekableInput sin, DatumReader&lt;D&gt; reader, boolean closeOnError, byte[] magic)
+      throws IOException {
+<span class="nc" id="L141">    super(reader);</span>
+    try {
+<span class="nc" id="L143">      this.sin = new SeekableInputStream(sin);</span>
+<span class="nc" id="L144">      initialize(this.sin, magic);</span>
+<span class="nc" id="L145">      blockFinished();</span>
+<span class="nc" id="L146">    } catch (final Throwable e) {</span>
+<span class="nc bnc" id="L147" title="All 2 branches missed.">      if (closeOnError) {</span>
+<span class="nc" id="L148">        IOUtils.closeQuietly(sin);</span>
+      }
+<span class="nc" id="L150">      throw e;</span>
+<span class="nc" id="L151">    }</span>
+<span class="nc" id="L152">  }</span>
+
+  /**
+   * Construct using a {@link DataFileStream.Header}. Does not call
+   * {@link #sync(long)} or {@link #seek(long)}.
+   */
+  protected DataFileReader(SeekableInput sin, DatumReader&lt;D&gt; reader, Header header) throws IOException {
+<span class="nc" id="L159">    super(reader);</span>
+<span class="nc" id="L160">    this.sin = new SeekableInputStream(sin);</span>
+<span class="nc" id="L161">    initialize(header);</span>
+<span class="nc" id="L162">  }</span>
+
+  /**
+   * Move to a specific, known synchronization point, one returned from
+   * {@link DataFileWriter#sync()} while writing. If synchronization points were
+   * not saved while writing a file, use {@link #sync(long)} instead.
+   */
+  public void seek(long position) throws IOException {
+<span class="nc" id="L170">    sin.seek(position);</span>
+<span class="nc" id="L171">    vin = DecoderFactory.get().binaryDecoder(this.sin, vin);</span>
+<span class="nc" id="L172">    datumIn = null;</span>
+<span class="nc" id="L173">    blockRemaining = 0;</span>
+<span class="nc" id="L174">    blockFinished();</span>
+<span class="nc" id="L175">  }</span>
+
+  /**
+   * Move to the next synchronization point after a position. To process a range
+   * of file entires, call this with the starting position, then check
+   * {@link #pastSync(long)} with the end point before each call to
+   * {@link #next()}.
+   */
+  @Override
+  public void sync(final long position) throws IOException {
+<span class="nc" id="L185">    seek(position);</span>
+    // work around an issue where 1.5.4 C stored sync in metadata
+<span class="nc bnc" id="L187" title="All 4 branches missed.">    if ((position == 0L) &amp;&amp; (getMeta(&quot;avro.sync&quot;) != null)) {</span>
+<span class="nc" id="L188">      initialize(sin, null); // re-init to skip header</span>
+<span class="nc" id="L189">      return;</span>
+    }
+
+<span class="nc bnc" id="L192" title="All 2 branches missed.">    if (this.partialMatchTable == null) {</span>
+<span class="nc" id="L193">      this.partialMatchTable = computePartialMatchTable(getHeader().sync);</span>
+    }
+
+<span class="nc" id="L196">    final byte[] sync = getHeader().sync;</span>
+<span class="nc" id="L197">    final InputStream in = vin.inputStream();</span>
+<span class="nc" id="L198">    final int[] pm = this.partialMatchTable;</span>
+
+    // Search for the sequence of bytes in the stream using Knuth-Morris-Pratt
+<span class="nc" id="L201">    long i = 0L;</span>
+<span class="nc bnc" id="L202" title="All 2 branches missed.">    for (int b = in.read(), j = 0; b != -1; b = in.read(), i++) {</span>
+<span class="nc" id="L203">      final byte cb = (byte) b;</span>
+<span class="nc bnc" id="L204" title="All 4 branches missed.">      while (j &gt; 0 &amp;&amp; sync[j] != cb) {</span>
+<span class="nc" id="L205">        j = pm[j - 1];</span>
+      }
+<span class="nc bnc" id="L207" title="All 2 branches missed.">      if (sync[j] == cb) {</span>
+<span class="nc" id="L208">        j++;</span>
+      }
+<span class="nc bnc" id="L210" title="All 2 branches missed.">      if (j == SYNC_SIZE) {</span>
+<span class="nc" id="L211">        this.blockStart = position + i + 1L;</span>
+<span class="nc" id="L212">        return;</span>
+      }
+    }
+    // if no match set start to the end position
+<span class="nc" id="L216">    blockStart = sin.tell();</span>
+<span class="nc" id="L217">  }</span>
+
+  /**
+   * Compute that Knuth-Morris-Pratt partial match table.
+   *
+   * @param pattern The pattern being searched
+   * @return the pre-computed partial match table
+   *
+   * @see &lt;a href= &quot;https://github.com/williamfiset/Algorithms&quot;&gt;William Fiset
+   *      Algorithms&lt;/a&gt;
+   */
+  private int[] computePartialMatchTable(final byte[] pattern) {
+<span class="nc" id="L229">    final int[] pm = new int[pattern.length];</span>
+<span class="nc bnc" id="L230" title="All 2 branches missed.">    for (int i = 1, len = 0; i &lt; pattern.length;) {</span>
+<span class="nc bnc" id="L231" title="All 2 branches missed.">      if (pattern[i] == pattern[len]) {</span>
+<span class="nc" id="L232">        pm[i++] = ++len;</span>
+      } else {
+<span class="nc bnc" id="L234" title="All 2 branches missed.">        if (len &gt; 0) {</span>
+<span class="nc" id="L235">          len = pm[len - 1];</span>
+        } else {
+<span class="nc" id="L237">          i++;</span>
+        }
+      }
+    }
+<span class="nc" id="L241">    return pm;</span>
+  }
+
+  @Override
+  protected void blockFinished() throws IOException {
+<span class="nc" id="L246">    blockStart = sin.tell() - vin.inputStream().available();</span>
+<span class="nc" id="L247">  }</span>
+
+  /** Return the last synchronization point before our current position. */
+  public long previousSync() {
+<span class="nc" id="L251">    return blockStart;</span>
+  }
+
+  /** Return true if past the next synchronization point after a position. */
+  @Override
+  public boolean pastSync(long position) throws IOException {
+<span class="nc bnc" id="L257" title="All 4 branches missed.">    return ((blockStart &gt;= position + SYNC_SIZE) || (blockStart &gt;= sin.length()));</span>
+  }
+
+  @Override
+  public long tell() throws IOException {
+<span class="nc" id="L262">    return sin.tell();</span>
+  }
+
+  static class SeekableInputStream extends InputStream implements SeekableInput {
+<span class="nc" id="L266">    private final byte[] oneByte = new byte[1];</span>
+    private final SeekableInput in;
+
+<span class="nc" id="L269">    SeekableInputStream(SeekableInput in) {</span>
+<span class="nc" id="L270">      this.in = in;</span>
+<span class="nc" id="L271">    }</span>
+
+    @Override
+    public void seek(long p) throws IOException {
+<span class="nc bnc" id="L275" title="All 2 branches missed.">      if (p &lt; 0)</span>
+<span class="nc" id="L276">        throw new IOException(&quot;Illegal seek: &quot; + p);</span>
+<span class="nc" id="L277">      in.seek(p);</span>
+<span class="nc" id="L278">    }</span>
+
+    @Override
+    public long tell() throws IOException {
+<span class="nc" id="L282">      return in.tell();</span>
+    }
+
+    @Override
+    public long length() throws IOException {
+<span class="nc" id="L287">      return in.length();</span>
+    }
+
+    @Override
+    public int read(byte[] b) throws IOException {
+<span class="nc" id="L292">      return in.read(b, 0, b.length);</span>
+    }
+
+    @Override
+    public int read(byte[] b, int off, int len) throws IOException {
+<span class="nc" id="L297">      return in.read(b, off, len);</span>
+    }
+
+    @Override
+    public int read() throws IOException {
+<span class="nc" id="L302">      int n = read(oneByte, 0, 1);</span>
+<span class="nc bnc" id="L303" title="All 2 branches missed.">      if (n == 1) {</span>
+<span class="nc" id="L304">        return oneByte[0] &amp; 0xff;</span>
+      } else {
+<span class="nc" id="L306">        return n;</span>
+      }
+    }
+
+    @Override
+    public long skip(long skip) throws IOException {
+<span class="nc" id="L312">      long position = in.tell();</span>
+<span class="nc" id="L313">      long skipToPosition = position + skip;</span>
+<span class="nc" id="L314">      long length = in.length();</span>
+<span class="nc" id="L315">      in.seek(Math.min(skipToPosition, length));</span>
+<span class="nc" id="L316">      return in.tell() - position;</span>
+    }
+
+    @Override
+    public void close() throws IOException {
+<span class="nc" id="L321">      in.close();</span>
+<span class="nc" id="L322">      super.close();</span>
+<span class="nc" id="L323">    }</span>
+
+    @Override
+    public int available() throws IOException {
+<span class="nc" id="L327">      long remaining = (in.length() - in.tell());</span>
+<span class="nc" id="L328">      return (int) Math.min(remaining, Integer.MAX_VALUE);</span>
+    }
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

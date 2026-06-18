@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ClassSecurityValidator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Avro</a> &gt; <a href="index.source.html" class="el_package">org.apache.avro.util</a> &gt; <span class="el_source">ClassSecurityValidator.java</span></div><h1>ClassSecurityValidator.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.avro.util;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.NavigableSet;
+import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+/**
+ * Validates that a class is trusted to be included in Avro schemas. To be used
+ * by {@link ClassUtils} which therefore automatically guards not only the
+ * loading of the classes but, since the class names are translated into
+ * {@link Class} objects by using {@link ClassUtils}, also guards any other
+ * reflection-based mechanisms (e.g. instantiation, setting internal variables).
+ *
+ * @see #setGlobal(ClassSecurityPredicate)
+ * @see #getGlobal()
+ */
+public final class ClassSecurityValidator {
+
+  /**
+   * Validates that the class is trusted to be included in Avro schemas.
+   *
+   * &lt;p&gt;
+   * Note: this method shall be invoked with un-initialized classes only to
+   * prevent any potential security issues the initialization may trigger.
+   *
+   * @param clazz the class to validate
+   * @throws SecurityException if the class is not trusted
+   */
+  public static void validate(Class&lt;?&gt; clazz) {
+<span class="nc bnc" id="L53" title="All 2 branches missed.">    while (clazz.isArray()) {</span>
+<span class="nc" id="L54">      clazz = clazz.getComponentType();</span>
+    }
+<span class="nc bnc" id="L56" title="All 2 branches missed.">    if (clazz.isPrimitive()) {</span>
+<span class="nc" id="L57">      return;</span>
+    }
+<span class="nc bnc" id="L59" title="All 2 branches missed.">    if (!globalInstance.isTrusted(clazz)) {</span>
+<span class="nc" id="L60">      globalInstance.forbiddenClass(clazz.getName());</span>
+    }
+<span class="nc" id="L62">  }</span>
+
+  /**
+   * Sets the global {@link ClassSecurityPredicate} that is used by
+   * {@link ClassUtils} to validate the trusted classes.
+   *
+   * @param validator the validator to use
+   */
+  public static void setGlobal(ClassSecurityPredicate validator) {
+<span class="nc" id="L71">    globalInstance = Objects.requireNonNull(validator);</span>
+<span class="nc" id="L72">  }</span>
+
+  /**
+   * Returns the global {@link ClassSecurityPredicate} that is used by
+   * {@link ClassUtils} to validate the trusted classes.
+   *
+   * @return the global validator
+   */
+  public static ClassSecurityPredicate getGlobal() {
+<span class="nc" id="L81">    return globalInstance;</span>
+  }
+
+  private ClassSecurityValidator() {
+  }
+
+  /**
+   * A predicate that checks if a class is trusted to be included in Avro schemas.
+   */
+  public interface ClassSecurityPredicate {
+    /**
+     * Checks if the class is trusted to be included in Avro schemas.
+     *
+     * @param clazz the class to check
+     * @return true if the class is trusted, false otherwise
+     */
+    boolean isTrusted(Class&lt;?&gt; clazz);
+
+    /**
+     * Throws a {@link SecurityException} with a message indicating that the class
+     * is not trusted to be included in Avro schemas.
+     *
+     * @param className the name of the class that is not trusted
+     */
+    default void forbiddenClass(String className) {
+<span class="nc" id="L106">      throw new SecurityException(&quot;Forbidden &quot; + className + &quot;! This class is not trusted to be included in Avro &quot;</span>
+          + &quot;schemas. You may either use the system properties org.apache.avro.SERIALIZABLE_CLASSES and &quot;
+          + &quot;org.apache.avro.SERIALIZABLE_PACKAGES to set the comma separated list of the classes or packages you trust, &quot;
+          + &quot;or you can set them via the API (see org.apache.avro.util.ClassSecurityValidator).&quot;);
+    }
+  }
+
+  /**
+   * A couple of trusted classes that are safe to be loaded, instantiated with any
+   * constructors or alter any internals via reflection.
+   */
+<span class="nc" id="L117">  public static final ClassSecurityPredicate DEFAULT_TRUSTED_CLASSES = builder().add(&quot;java.lang.Boolean&quot;)</span>
+<span class="nc" id="L118">      .add(&quot;java.lang.Byte&quot;).add(&quot;java.lang.Character&quot;).add(&quot;java.lang.CharSequence&quot;).add(&quot;java.lang.Double&quot;)</span>
+<span class="nc" id="L119">      .add(&quot;java.lang.Enum&quot;).add(&quot;java.lang.Float&quot;).add(&quot;java.lang.Integer&quot;).add(&quot;java.lang.Long&quot;)</span>
+<span class="nc" id="L120">      .add(&quot;java.lang.Number&quot;).add(&quot;java.lang.Object&quot;).add(&quot;java.lang.Short&quot;).add(&quot;java.lang.String&quot;)</span>
+<span class="nc" id="L121">      .add(&quot;java.lang.Void&quot;).add(&quot;java.math.BigDecimal&quot;).add(&quot;java.math.BigInteger&quot;).build();</span>
+
+  /**
+   * The predicate that uses the system properties
+   * {@value SystemPropertiesPredicate#SYSPROP_SERIALIZABLE_CLASSES} and
+   * {@value SystemPropertiesPredicate#SYSPROP_SERIALIZABLE_PACKAGES}.
+   */
+<span class="nc" id="L128">  public static final ClassSecurityPredicate SYSTEM_PROPERTIES = new SystemPropertiesPredicate();</span>
+
+  /**
+   * The default predicate that uses both the system properties and the hard-coded
+   * trusted classes.
+   *
+   * @see #DEFAULT_TRUSTED_CLASSES
+   * @see #SYSTEM_PROPERTIES
+   */
+<span class="nc" id="L137">  public static final ClassSecurityPredicate DEFAULT = composite(DEFAULT_TRUSTED_CLASSES, SYSTEM_PROPERTIES);</span>
+
+<span class="nc" id="L139">  private static ClassSecurityPredicate globalInstance = DEFAULT;</span>
+
+  /**
+   * Creates a builder for a {@link ClassSecurityValidator} that validates the
+   * trusted classes by whitelisting their names. Note: no parent validator is
+   * used.
+   *
+   * @return a new {@link ClassSecurityValidator} builder
+   */
+  public static Builder builder() {
+<span class="nc" id="L149">    return new Builder();</span>
+  }
+
+  /**
+   * Creates a composite {@link ClassSecurityValidator} that delegates to the
+   * given validators.
+   *
+   * @param validators the validators to delegate to
+   * @return a new {@link ClassSecurityValidator} that delegates to the given
+   *         validators
+   */
+  public static ClassSecurityPredicate composite(ClassSecurityPredicate... validators) {
+<span class="nc" id="L161">    return clazz -&gt; Arrays.stream(validators).anyMatch(v -&gt; v.isTrusted(clazz));</span>
+  }
+
+  public static class Builder {
+<span class="nc" id="L165">    private final Set&lt;String&gt; allowedClassNames = new HashSet&lt;&gt;();</span>
+
+<span class="nc" id="L167">    private Builder() {</span>
+<span class="nc" id="L168">    }</span>
+
+    public Builder add(String className) {
+<span class="nc" id="L171">      allowedClassNames.add(className);</span>
+<span class="nc" id="L172">      return this;</span>
+    }
+
+    public Builder add(Class&lt;?&gt; clazz) {
+<span class="nc" id="L176">      return add(clazz.getName());</span>
+    }
+
+    public ClassSecurityPredicate build() {
+<span class="nc" id="L180">      return clazz -&gt; allowedClassNames.contains(clazz.getName());</span>
+    }
+  }
+
+  public static class SystemPropertiesPredicate implements ClassSecurityPredicate {
+
+    /**
+     * The set of trusted classes specified by the system property
+     * {@value #SYSPROP_SERIALIZABLE_CLASSES}. Empty by default.
+     */
+    public static final Set&lt;String&gt; SERIALIZABLE_CLASSES;
+
+    /**
+     * The set of trusted packages specified by the system property
+     * {@value #SYSPROP_SERIALIZABLE_PACKAGES}. Empty by default.
+     */
+    public static final NavigableSet&lt;String&gt; SERIALIZABLE_PACKAGES;
+
+    private static final boolean TRUST_ALL_PACKAGES;
+
+    private static final String SYSPROP_SERIALIZABLE_CLASSES = &quot;org.apache.avro.SERIALIZABLE_CLASSES&quot;;
+
+    private static final String SYSPROP_SERIALIZABLE_PACKAGES = &quot;org.apache.avro.SERIALIZABLE_PACKAGES&quot;;
+
+    static {
+      // add the hard-coded trusted classes as well
+<span class="nc" id="L206">      SERIALIZABLE_CLASSES = Collections.unmodifiableSet(</span>
+<span class="nc" id="L207">          streamPropertyEntries(System.getProperty(SYSPROP_SERIALIZABLE_CLASSES)).collect(Collectors.toSet()));</span>
+
+      // no default serializable packages are hard-coded
+<span class="nc" id="L210">      NavigableSet&lt;String&gt; packages = streamPropertyEntries(System.getProperty(SYSPROP_SERIALIZABLE_PACKAGES))</span>
+          // Add a '.' suffix to ensure we'll be matching package names instead of
+          // arbitrary prefixes, except for the wildcard &quot;*&quot;, which allows all
+          // packages (this is only safe in fully controlled environments!).
+<span class="nc bnc" id="L214" title="All 2 branches missed.">          .map(entry -&gt; &quot;*&quot;.equals(entry) ? entry : entry + &quot;.&quot;).collect(TreeSet::new, TreeSet::add, TreeSet::addAll);</span>
+<span class="nc" id="L215">      TRUST_ALL_PACKAGES = packages.remove(&quot;*&quot;);</span>
+
+<span class="nc" id="L217">      SERIALIZABLE_PACKAGES = Collections.unmodifiableNavigableSet(packages);</span>
+<span class="nc" id="L218">    }</span>
+
+    /**
+     * Parse a comma separated list into non-empty entries. Leading and trailing
+     * whitespace is stripped.
+     *
+     * @param commaSeparatedEntries the comma separated list of entries
+     * @return a stream of the entries
+     */
+    private static Stream&lt;String&gt; streamPropertyEntries(String commaSeparatedEntries) {
+<span class="nc bnc" id="L228" title="All 2 branches missed.">      if (commaSeparatedEntries == null) {</span>
+<span class="nc" id="L229">        return Stream.empty();</span>
+      }
+<span class="nc" id="L231">      return Stream.of(commaSeparatedEntries.split(&quot;,&quot;)).map(s -&gt; s.replaceAll(&quot;^\\s+|\\s+$&quot;, &quot;&quot;))</span>
+<span class="nc bnc" id="L232" title="All 2 branches missed.">          .filter(s -&gt; !s.isEmpty());</span>
+    }
+
+    private SystemPropertiesPredicate() {
+    }
+
+    @Override
+    public boolean isTrusted(Class&lt;?&gt; clazz) {
+<span class="nc bnc" id="L240" title="All 2 branches missed.">      if (TRUST_ALL_PACKAGES) {</span>
+<span class="nc" id="L241">        return true;</span>
+      }
+
+<span class="nc" id="L244">      String className = clazz.getName();</span>
+
+<span class="nc bnc" id="L246" title="All 2 branches missed.">      if (SERIALIZABLE_CLASSES.contains(className)) {</span>
+<span class="nc" id="L247">        return true;</span>
+      }
+
+<span class="nc" id="L250">      String lower = SERIALIZABLE_PACKAGES.lower(className);</span>
+<span class="nc bnc" id="L251" title="All 4 branches missed.">      return lower != null &amp;&amp; className.startsWith(lower);</span>
+    }
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

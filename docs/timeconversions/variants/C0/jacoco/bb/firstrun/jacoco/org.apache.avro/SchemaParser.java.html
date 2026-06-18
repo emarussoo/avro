@@ -1,0 +1,346 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SchemaParser.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Avro</a> &gt; <a href="index.source.html" class="el_package">org.apache.avro</a> &gt; <span class="el_source">SchemaParser.java</span></div><h1>SchemaParser.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.avro;
+
+import org.apache.avro.util.UtfTextUtils;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.Reader;
+import java.net.URI;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.ServiceLoader;
+
+/**
+ * Avro schema parser for text-based formats like JSON, IDL, etc.
+ *
+ * &lt;p&gt;
+ * Parses formatted (i.e., text based) schemata from a given source using the
+ * available {@link FormattedSchemaParser} implementations, and returns the
+ * first result. This means it can transparently handle any schema format. The
+ * Avro project defines a JSON based format and an IDL format (the latter
+ * available as a separate dependency), but you can also provide your own.
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * The parser can handle various text based sources. If the source contains a
+ * UTF encoded latin text based format it can even detect which UTF encoding was
+ * used (UTF-8, UTF16BE, UTF16LE, UTF-32BE or UTF32LE).
+ * &lt;/p&gt;
+ *
+ * @see FormattedSchemaParser
+ * @see UtfTextUtils
+ */
+public class SchemaParser {
+  private final ParseContext parseContext;
+  private final Collection&lt;FormattedSchemaParser&gt; formattedSchemaParsers;
+
+  /**
+   * &lt;p&gt;
+   * Use a default SchemaParser to parse a single schema. Equivalent to:
+   * &lt;/p&gt;
+   * &lt;code&gt;
+   *   new SchemaParser().parse(schema).mainSchema()
+   * &lt;/code&gt;
+   *
+   * @param schema the formatted schema to parse
+   * @return the parsed schema
+   * @throws SchemaParseException when the schema is invalid
+   * @see SchemaParser#parse(CharSequence)
+   */
+  public static Schema parseSingle(String schema) throws SchemaParseException {
+<span class="nc" id="L73">    return new SchemaParser().parse(schema).mainSchema();</span>
+  }
+
+  /**
+   * &lt;p&gt;
+   * Use a default SchemaParser to parse a single schema from a file. Equivalent
+   * to:
+   * &lt;/p&gt;
+   * &lt;code&gt;
+   *   new SchemaParser().parse(schemaFile).mainSchema()
+   * &lt;/code&gt;
+   *
+   * @param schemaFile the formatted schema to parse
+   * @return the parsed schema
+   * @throws SchemaParseException when the schema is invalid
+   * @see SchemaParser#parse(Path)
+   */
+  public static Schema parseSingle(Path schemaFile) throws SchemaParseException, IOException {
+<span class="nc" id="L91">    return new SchemaParser().parse(schemaFile).mainSchema();</span>
+  }
+
+  /**
+   * Create a schema parser that validates names using
+   * {@link NameValidator#UTF_VALIDATOR}. Initially, the list of known (named)
+   * schemata is empty.
+   */
+  public SchemaParser() {
+<span class="nc" id="L100">    this(NameValidator.UTF_VALIDATOR);</span>
+<span class="nc" id="L101">  }</span>
+
+  /**
+   * Create a schema parser with the specified name validator.
+   * &lt;p&gt;
+   * Initially, the list of known (named) schemata is empty.
+   * &lt;/p&gt;
+   * &lt;p&gt;
+   * Note: using {@link NameValidator#STRICT_VALIDATOR} to validate names is
+   * advised for maximum interoperability.
+   * &lt;/p&gt;
+   *
+   * @param nameValidator the name validator to use
+   */
+<span class="nc" id="L115">  public SchemaParser(NameValidator nameValidator) {</span>
+<span class="nc bnc" id="L116" title="All 2 branches missed.">    NameValidator validator = nameValidator != null ? nameValidator : NameValidator.NO_VALIDATION;</span>
+<span class="nc" id="L117">    this.parseContext = new ParseContext(validator);</span>
+<span class="nc" id="L118">    this.formattedSchemaParsers = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L119" title="All 2 branches missed.">    for (FormattedSchemaParser formattedSchemaParser : ServiceLoader.load(FormattedSchemaParser.class)) {</span>
+<span class="nc" id="L120">      formattedSchemaParsers.add(formattedSchemaParser);</span>
+<span class="nc" id="L121">    }</span>
+    // Add the default JSON parser last (it is not registered as a service, even
+    // though it implements the service interface), to allow implementations that
+    // parse JSON files into schemata differently.
+<span class="nc" id="L125">    formattedSchemaParsers.add(new JsonSchemaParser());</span>
+<span class="nc" id="L126">  }</span>
+
+  /**
+   * Parse an Avro schema from a file. The file content is assumed to be UTF text.
+   *
+   * @param file the file to read
+   * @return the schema
+   * @throws IOException          when the schema cannot be read
+   * @throws SchemaParseException if parsing the schema failed; contains
+   *                              suppressed underlying parse exceptions if
+   *                              available
+   * @see UtfTextUtils UTF detection algorithm in UtfTextUtils
+   */
+  public ParseResult parse(File file) throws IOException, SchemaParseException {
+<span class="nc" id="L140">    return parse(file, null);</span>
+  }
+
+  /**
+   * Parse an Avro schema from a file written with a specific character set.
+   *
+   * @param file    the file to read
+   * @param charset the character set of the file contents
+   * @return the schema
+   * @throws IOException          when the schema cannot be read
+   * @throws SchemaParseException if parsing the schema failed; contains
+   *                              suppressed underlying parse exceptions if
+   *                              available
+   */
+  public ParseResult parse(File file, Charset charset) throws IOException, SchemaParseException {
+<span class="nc" id="L155">    return parse(file.toPath(), charset);</span>
+  }
+
+  /**
+   * Parse an Avro schema from a file. The file content is assumed to be UTF text.
+   *
+   * @param file the file to read
+   * @return the schema
+   * @throws IOException          when the schema cannot be read
+   * @throws SchemaParseException if parsing the schema failed; contains
+   *                              suppressed underlying parse exceptions if
+   *                              available
+   * @see UtfTextUtils UTF detection algorithm in UtfTextUtils
+   */
+  public ParseResult parse(Path file) throws IOException, SchemaParseException {
+<span class="nc" id="L170">    return parse(file, null);</span>
+  }
+
+  /**
+   * Parse an Avro schema from a file written with a specific character set.
+   *
+   * @param file    the file to read
+   * @param charset the character set of the file contents
+   * @return the schema
+   * @throws IOException          when the schema cannot be read
+   * @throws SchemaParseException if parsing the schema failed; contains
+   *                              suppressed underlying parse exceptions if
+   *                              available
+   */
+  public ParseResult parse(Path file, Charset charset) throws IOException, SchemaParseException {
+<span class="nc" id="L185">    URI inputDir = file.getParent().toUri();</span>
+<span class="nc" id="L186">    try (InputStream stream = Files.newInputStream(file)) {</span>
+<span class="nc" id="L187">      String formattedSchema = UtfTextUtils.readAllBytes(stream, charset);</span>
+<span class="nc" id="L188">      return parse(inputDir, formattedSchema);</span>
+    }
+  }
+
+  /**
+   * Parse an Avro schema from a file written with a specific character set.
+   *
+   * @param location the location of the schema resource
+   * @param charset  the character set of the schema resource
+   * @return the schema
+   * @throws IOException          when the schema cannot be read
+   * @throws SchemaParseException if parsing the schema failed; contains
+   *                              suppressed underlying parse exceptions if
+   *                              available
+   */
+  public ParseResult parse(URI location, Charset charset) throws IOException, SchemaParseException {
+<span class="nc" id="L204">    try (InputStream stream = location.toURL().openStream()) {</span>
+<span class="nc" id="L205">      String formattedSchema = UtfTextUtils.readAllBytes(stream, charset);</span>
+<span class="nc" id="L206">      return parse(location, formattedSchema);</span>
+    }
+  }
+
+  /**
+   * Parse an Avro schema from an input stream. The stream content is assumed to
+   * be UTF text. Note that the stream stays open after reading.
+   *
+   * @param in the stream to read
+   * @return the schema
+   * @throws IOException          when the schema cannot be read
+   * @throws SchemaParseException if parsing the schema failed; contains
+   *                              suppressed underlying parse exceptions if
+   *                              available
+   * @see UtfTextUtils UTF detection algorithm in UtfTextUtils
+   */
+  public ParseResult parse(InputStream in) throws IOException, SchemaParseException {
+<span class="nc" id="L223">    return parse(in, null);</span>
+  }
+
+  /**
+   * Parse an Avro schema from an input stream. Note that the stream stays open
+   * after reading.
+   *
+   * @param in      the stream to read
+   * @param charset the character set of the stream contents
+   * @return the schema
+   * @throws IOException          when the schema cannot be read
+   * @throws SchemaParseException if parsing the schema failed; contains
+   *                              suppressed underlying parse exceptions if
+   *                              available
+   */
+  public ParseResult parse(InputStream in, Charset charset) throws IOException, SchemaParseException {
+<span class="nc" id="L239">    return parse(UtfTextUtils.readAllBytes(in, charset));</span>
+  }
+
+  /**
+   * Parse an Avro schema from an input reader.
+   *
+   * @param in the stream to read
+   * @return the schema
+   * @throws IOException          when the schema cannot be read
+   * @throws SchemaParseException if parsing the schema failed; contains
+   *                              suppressed underlying parse exceptions if
+   *                              available
+   */
+  public ParseResult parse(Reader in) throws IOException, SchemaParseException {
+<span class="nc" id="L253">    return parse(UtfTextUtils.readAllChars(in));</span>
+  }
+
+  /**
+   * Parse an Avro schema from a string.
+   *
+   * @param text the text to parse
+   * @return the schema
+   * @throws SchemaParseException if parsing the schema failed; contains
+   *                              suppressed underlying parse exceptions if
+   *                              available
+   */
+  public ParseResult parse(CharSequence text) throws SchemaParseException {
+    try {
+<span class="nc" id="L267">      return parse(null, text);</span>
+<span class="nc" id="L268">    } catch (IOException e) {</span>
+      // This can only happen if parser implementations try to read other (related)
+      // schemata from somewhere.
+<span class="nc" id="L271">      throw new AvroRuntimeException(&quot;Could not read schema&quot;, e);</span>
+    }
+  }
+
+  /**
+   * Parse the given schema (string) within the specified context using all
+   * available {@link FormattedSchemaParser} implementations, collecting any
+   * {@link SchemaParseException}s that occur, and return the first successfully
+   * parsed schema. If all parsers fail, throw a {@code SchemaParseException} with
+   * all collected parse exceptions added as suppressed exceptions. Uses the base
+   * location of the schema (e.g., the directory where the schema file lives) if
+   * available.
+   *
+   * @param baseUri         the base location of the schema, or {@code null} if
+   *                        not known
+   * @param formattedSchema the schema as text
+   * @return the parsed schema
+   * @throws IOException          if thrown by one of the parsers
+   * @throws RuntimeException     if thrown by one of the parsers
+   * @throws SchemaParseException when all parsers fail
+   */
+  private ParseResult parse(URI baseUri, CharSequence formattedSchema) throws IOException, SchemaParseException {
+<span class="nc" id="L293">    List&lt;SchemaParseException&gt; parseExceptions = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L294" title="All 2 branches missed.">    for (FormattedSchemaParser formattedSchemaParser : formattedSchemaParsers) {</span>
+      try {
+<span class="nc" id="L296">        Schema schema = formattedSchemaParser.parse(parseContext, baseUri, formattedSchema);</span>
+<span class="nc bnc" id="L297" title="All 4 branches missed.">        if (parseContext.hasNewSchemas() || schema != null) {</span>
+          // Parsing succeeded: return the result.
+<span class="nc" id="L299">          return parseContext.commit(schema);</span>
+        }
+<span class="nc" id="L301">      } catch (SchemaParseException e) {</span>
+<span class="nc" id="L302">        parseContext.rollback();</span>
+<span class="nc" id="L303">        parseExceptions.add(e);</span>
+<span class="nc" id="L304">      }</span>
+<span class="nc" id="L305">    }</span>
+
+    // None of the available parsers succeeded
+
+<span class="nc bnc" id="L309" title="All 2 branches missed.">    if (parseExceptions.size() == 1) {</span>
+<span class="nc" id="L310">      throw parseExceptions.get(0);</span>
+    }
+<span class="nc" id="L312">    SchemaParseException parseException = new SchemaParseException(</span>
+        &quot;Could not parse the schema (the suppressed exceptions tell why).&quot;);
+<span class="nc" id="L314">    parseExceptions.forEach(parseException::addSuppressed);</span>
+<span class="nc" id="L315">    throw parseException;</span>
+  }
+
+  /**
+   * Get all parsed schemata.
+   *
+   * @return all parsed schemas, in the order they were parsed
+   */
+  public List&lt;Schema&gt; getParsedNamedSchemas() {
+<span class="nc" id="L324">    return parseContext.resolveAllSchemas();</span>
+  }
+
+  // Temporary method to reduce PR size
+  @Deprecated
+  public Schema resolve(ParseResult result) {
+<span class="nc" id="L330">    return result.mainSchema();</span>
+  }
+
+  public interface ParseResult {
+    /**
+     * The main schema parsed from a file. Can be any schema, or {@code null} if the
+     * parsed file has no &quot;main&quot; schema.
+     */
+    Schema mainSchema();
+
+    /**
+     * The list of named schemata that were parsed.
+     */
+    List&lt;Schema&gt; parsedNamedSchemas();
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

@@ -1,0 +1,414 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GenericDatumWriter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Avro</a> &gt; <a href="index.source.html" class="el_package">org.apache.avro.generic</a> &gt; <span class="el_source">GenericDatumWriter.java</span></div><h1>GenericDatumWriter.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.avro.generic;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.ConcurrentModificationException;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Collection;
+
+import org.apache.avro.AvroRuntimeException;
+import org.apache.avro.AvroTypeException;
+import org.apache.avro.Conversion;
+import org.apache.avro.Conversions;
+import org.apache.avro.LogicalType;
+import org.apache.avro.Schema;
+import org.apache.avro.Schema.Field;
+import org.apache.avro.path.TracingAvroTypeException;
+import org.apache.avro.UnresolvedUnionException;
+import org.apache.avro.io.DatumWriter;
+import org.apache.avro.io.Encoder;
+import org.apache.avro.path.ArrayPositionPredicate;
+import org.apache.avro.path.LocationStep;
+import org.apache.avro.path.MapKeyPredicate;
+import org.apache.avro.path.TracingClassCastException;
+import org.apache.avro.path.TracingNullPointException;
+import org.apache.avro.path.UnionTypePredicate;
+import org.apache.avro.util.SchemaUtil;
+
+/** {@link DatumWriter} for generic Java objects. */
+public class GenericDatumWriter&lt;D&gt; implements DatumWriter&lt;D&gt; {
+  private final GenericData data;
+  private Schema root;
+
+  public GenericDatumWriter() {
+<span class="nc" id="L53">    this(GenericData.get());</span>
+<span class="nc" id="L54">  }</span>
+
+<span class="nc" id="L56">  protected GenericDatumWriter(GenericData data) {</span>
+<span class="nc" id="L57">    this.data = data;</span>
+<span class="nc" id="L58">  }</span>
+
+  public GenericDatumWriter(Schema root) {
+<span class="nc" id="L61">    this();</span>
+<span class="nc" id="L62">    setSchema(root);</span>
+<span class="nc" id="L63">  }</span>
+
+  public GenericDatumWriter(Schema root, GenericData data) {
+<span class="nc" id="L66">    this(data);</span>
+<span class="nc" id="L67">    setSchema(root);</span>
+<span class="nc" id="L68">  }</span>
+
+  /** Return the {@link GenericData} implementation. */
+  public GenericData getData() {
+<span class="nc" id="L72">    return data;</span>
+  }
+
+  public void setSchema(Schema root) {
+<span class="nc" id="L76">    this.root = root;</span>
+<span class="nc" id="L77">  }</span>
+
+  public void write(D datum, Encoder out) throws IOException {
+<span class="nc" id="L80">    Objects.requireNonNull(out, &quot;Encoder cannot be null&quot;);</span>
+    try {
+<span class="nc" id="L82">      write(root, datum, out);</span>
+<span class="nc" id="L83">    } catch (TracingNullPointException | TracingClassCastException | TracingAvroTypeException e) {</span>
+<span class="nc" id="L84">      throw e.summarize(root);</span>
+<span class="nc" id="L85">    }</span>
+<span class="nc" id="L86">  }</span>
+
+  /** Called to write data. */
+  protected void write(Schema schema, Object datum, Encoder out) throws IOException {
+<span class="nc" id="L90">    LogicalType logicalType = schema.getLogicalType();</span>
+<span class="nc bnc" id="L91" title="All 4 branches missed.">    if (datum != null &amp;&amp; logicalType != null) {</span>
+<span class="nc" id="L92">      Conversion&lt;?&gt; conversion = getData().getConversionByClass(datum.getClass(), logicalType);</span>
+<span class="nc" id="L93">      writeWithoutConversion(schema, convert(schema, logicalType, conversion, datum), out);</span>
+<span class="nc" id="L94">    } else {</span>
+<span class="nc" id="L95">      writeWithoutConversion(schema, datum, out);</span>
+    }
+<span class="nc" id="L97">  }</span>
+
+  /**
+   * Convert a high level representation of a logical type (such as a BigDecimal)
+   * to its underlying representation object (such as a ByteBuffer).
+   *
+   * @throws IllegalArgumentException if a null schema or logicalType is passed in
+   *                                  while datum and conversion are not null.
+   *                                  Please be noticed that the exception type
+   *                                  has changed. With version 1.8.0 and earlier,
+   *                                  in above circumstance, the exception thrown
+   *                                  out depends on the implementation of
+   *                                  conversion (most likely a
+   *                                  NullPointerException). Now, an
+   *                                  IllegalArgumentException will be thrown out
+   *                                  instead.
+   */
+  protected &lt;T&gt; Object convert(Schema schema, LogicalType logicalType, Conversion&lt;T&gt; conversion, Object datum) {
+    try {
+<span class="nc bnc" id="L116" title="All 2 branches missed.">      if (conversion == null) {</span>
+<span class="nc" id="L117">        return datum;</span>
+      } else {
+<span class="nc" id="L119">        return Conversions.convertToRawType(datum, schema, logicalType, conversion);</span>
+      }
+<span class="nc" id="L121">    } catch (AvroRuntimeException e) {</span>
+<span class="nc" id="L122">      Throwable cause = e.getCause();</span>
+<span class="nc bnc" id="L123" title="All 4 branches missed.">      if (cause != null &amp;&amp; cause.getClass() == ClassCastException.class) {</span>
+        // This is to keep backwards compatibility. The convert function here used to
+        // throw CCE. After being moved to Conversions, it throws AvroRuntimeException
+        // instead. To keep as much same behaviour as before, this function checks if
+        // the cause is a CCE. If yes, rethrow it in case any child class checks it.
+        // This
+        // behaviour can be changed later in future versions to make it consistent with
+        // reading path, which throws AvroRuntimeException
+<span class="nc" id="L131">        throw (ClassCastException) cause;</span>
+      } else {
+<span class="nc" id="L133">        throw e;</span>
+      }
+    }
+  }
+
+  /** Called to write data. */
+  protected void writeWithoutConversion(Schema schema, Object datum, Encoder out) throws IOException {
+<span class="nc" id="L140">    int unionIndex = -1;</span>
+<span class="nc" id="L141">    Schema.Type schemaType = schema.getType();</span>
+    try {
+<span class="nc bnc" id="L143" title="All 15 branches missed.">      switch (schemaType) {</span>
+      case RECORD:
+<span class="nc" id="L145">        writeRecord(schema, datum, out);</span>
+<span class="nc" id="L146">        break;</span>
+      case ENUM:
+<span class="nc" id="L148">        writeEnum(schema, datum, out);</span>
+<span class="nc" id="L149">        break;</span>
+      case ARRAY:
+<span class="nc" id="L151">        writeArray(schema, datum, out);</span>
+<span class="nc" id="L152">        break;</span>
+      case MAP:
+<span class="nc" id="L154">        writeMap(schema, datum, out);</span>
+<span class="nc" id="L155">        break;</span>
+      case UNION:
+<span class="nc" id="L157">        unionIndex = resolveUnion(schema, datum);</span>
+<span class="nc" id="L158">        out.writeIndex(unionIndex);</span>
+<span class="nc" id="L159">        write(schema.getTypes().get(unionIndex), datum, out);</span>
+<span class="nc" id="L160">        break;</span>
+      case FIXED:
+<span class="nc" id="L162">        writeFixed(schema, datum, out);</span>
+<span class="nc" id="L163">        break;</span>
+      case STRING:
+<span class="nc" id="L165">        writeString(schema, datum, out);</span>
+<span class="nc" id="L166">        break;</span>
+      case BYTES:
+<span class="nc" id="L168">        writeBytes(datum, out);</span>
+<span class="nc" id="L169">        break;</span>
+      case INT:
+<span class="nc" id="L171">        out.writeInt(((Number) datum).intValue());</span>
+<span class="nc" id="L172">        break;</span>
+      case LONG:
+<span class="nc" id="L174">        out.writeLong(((Number) datum).longValue());</span>
+<span class="nc" id="L175">        break;</span>
+      case FLOAT:
+<span class="nc" id="L177">        out.writeFloat(((Number) datum).floatValue());</span>
+<span class="nc" id="L178">        break;</span>
+      case DOUBLE:
+<span class="nc" id="L180">        out.writeDouble(((Number) datum).doubleValue());</span>
+<span class="nc" id="L181">        break;</span>
+      case BOOLEAN:
+<span class="nc" id="L183">        out.writeBoolean((Boolean) datum);</span>
+<span class="nc" id="L184">        break;</span>
+      case NULL:
+<span class="nc" id="L186">        out.writeNull();</span>
+<span class="nc" id="L187">        break;</span>
+      default:
+<span class="nc" id="L189">        error(schema, datum);</span>
+      }
+<span class="nc" id="L191">    } catch (TracingNullPointException | TracingClassCastException | TracingAvroTypeException e) {</span>
+<span class="nc bnc" id="L192" title="All 2 branches missed.">      if (schemaType == Schema.Type.UNION) {</span>
+<span class="nc" id="L193">        e.tracePath(new UnionTypePredicate(schema.getTypes().get(unionIndex).getName()));</span>
+      }
+      // writeArray() and writeMap() have their own handling
+<span class="nc" id="L196">      throw e;</span>
+<span class="nc" id="L197">    } catch (NullPointerException e) {</span>
+<span class="nc" id="L198">      throw new TracingNullPointException(e, schema, false);</span>
+<span class="nc" id="L199">    } catch (ClassCastException e) {</span>
+<span class="nc" id="L200">      throw new TracingClassCastException(e, datum, schema, false);</span>
+<span class="nc" id="L201">    } catch (AvroTypeException e) {</span>
+<span class="nc" id="L202">      throw new TracingAvroTypeException(e);</span>
+<span class="nc" id="L203">    }</span>
+<span class="nc" id="L204">  }</span>
+
+  /** Helper method for adding a message to an NPE . */
+  protected NullPointerException npe(NullPointerException e, String s) {
+<span class="nc" id="L208">    NullPointerException result = new NullPointerException(e.getMessage() + s);</span>
+<span class="nc bnc" id="L209" title="All 2 branches missed.">    result.initCause(e.getCause() == null ? e : e.getCause());</span>
+<span class="nc" id="L210">    return result;</span>
+  }
+
+  /** Helper method for adding a message to an Class Cast Exception . */
+  protected ClassCastException addClassCastMsg(ClassCastException e, String s) {
+<span class="nc" id="L215">    ClassCastException result = new ClassCastException(e.getMessage() + s);</span>
+<span class="nc bnc" id="L216" title="All 2 branches missed.">    result.initCause(e.getCause() == null ? e : e.getCause());</span>
+<span class="nc" id="L217">    return result;</span>
+  }
+
+  /** Helper method for adding a message to an Avro Type Exception . */
+  protected AvroTypeException addAvroTypeMsg(AvroTypeException e, String s) {
+<span class="nc bnc" id="L222" title="All 2 branches missed.">    return new AvroTypeException(e.getMessage() + s, e.getCause() == null ? e : e.getCause());</span>
+  }
+
+  /**
+   * Called to write a record. May be overridden for alternate record
+   * representations.
+   */
+  protected void writeRecord(Schema schema, Object datum, Encoder out) throws IOException {
+<span class="nc" id="L230">    Object state = data.getRecordState(datum, schema);</span>
+<span class="nc bnc" id="L231" title="All 2 branches missed.">    for (Field f : schema.getFields()) {</span>
+<span class="nc" id="L232">      writeField(datum, f, out, state);</span>
+<span class="nc" id="L233">    }</span>
+<span class="nc" id="L234">  }</span>
+
+  /**
+   * Called to write a single field of a record. May be overridden for more
+   * efficient or alternate implementations.
+   */
+  protected void writeField(Object datum, Field f, Encoder out, Object state) throws IOException {
+<span class="nc" id="L241">    Object value = data.getField(datum, f.name(), f.pos(), state);</span>
+    try {
+<span class="nc" id="L243">      write(f.schema(), value, out);</span>
+<span class="nc" id="L244">    } catch (final UnresolvedUnionException uue) { // recreate it with the right field info</span>
+<span class="nc" id="L245">      final UnresolvedUnionException unresolvedUnionException = new UnresolvedUnionException(f.schema(), f, value);</span>
+<span class="nc" id="L246">      unresolvedUnionException.addSuppressed(uue);</span>
+<span class="nc" id="L247">      throw unresolvedUnionException;</span>
+<span class="nc" id="L248">    } catch (TracingNullPointException | TracingClassCastException | TracingAvroTypeException e) {</span>
+<span class="nc" id="L249">      e.tracePath(new LocationStep(&quot;.&quot;, f.name()));</span>
+<span class="nc" id="L250">      throw e;</span>
+<span class="nc" id="L251">    } catch (NullPointerException e) {</span>
+<span class="nc" id="L252">      throw npe(e, &quot; in field &quot; + f.name());</span>
+<span class="nc" id="L253">    } catch (ClassCastException cce) {</span>
+<span class="nc" id="L254">      throw addClassCastMsg(cce, &quot; in field &quot; + f.name());</span>
+<span class="nc" id="L255">    } catch (AvroTypeException ate) {</span>
+<span class="nc" id="L256">      throw addAvroTypeMsg(ate, &quot; in field &quot; + f.name());</span>
+<span class="nc" id="L257">    }</span>
+<span class="nc" id="L258">  }</span>
+
+  /**
+   * Called to write an enum value. May be overridden for alternate enum
+   * representations.
+   */
+  protected void writeEnum(Schema schema, Object datum, Encoder out) throws IOException {
+<span class="nc bnc" id="L265" title="All 2 branches missed.">    if (!data.isEnum(datum)) {</span>
+<span class="nc" id="L266">      AvroTypeException cause = new AvroTypeException(</span>
+<span class="nc" id="L267">          &quot;value &quot; + SchemaUtil.describe(datum) + &quot; is not a &quot; + SchemaUtil.describe(schema));</span>
+<span class="nc" id="L268">      throw new TracingAvroTypeException(cause);</span>
+    }
+<span class="nc" id="L270">    out.writeEnum(schema.getEnumOrdinal(datum.toString()));</span>
+<span class="nc" id="L271">  }</span>
+
+  /**
+   * Called to write a array. May be overridden for alternate array
+   * representations.
+   */
+  protected void writeArray(Schema schema, Object datum, Encoder out) throws IOException {
+<span class="nc" id="L278">    Schema element = schema.getElementType();</span>
+<span class="nc" id="L279">    long size = getArraySize(datum);</span>
+<span class="nc" id="L280">    long actualSize = 0;</span>
+<span class="nc" id="L281">    out.writeArrayStart();</span>
+<span class="nc" id="L282">    out.setItemCount(size);</span>
+<span class="nc bnc" id="L283" title="All 2 branches missed.">    for (Iterator&lt;?&gt; it = getArrayElements(datum); it.hasNext();) {</span>
+<span class="nc" id="L284">      out.startItem();</span>
+      try {
+<span class="nc" id="L286">        write(element, it.next(), out);</span>
+<span class="nc" id="L287">      } catch (TracingNullPointException | TracingClassCastException | TracingAvroTypeException e) {</span>
+<span class="nc" id="L288">        e.tracePath(new ArrayPositionPredicate(actualSize));</span>
+<span class="nc" id="L289">        throw e;</span>
+<span class="nc" id="L290">      }</span>
+<span class="nc" id="L291">      actualSize++;</span>
+    }
+<span class="nc" id="L293">    out.writeArrayEnd();</span>
+<span class="nc bnc" id="L294" title="All 2 branches missed.">    if (actualSize != size) {</span>
+<span class="nc" id="L295">      throw new ConcurrentModificationException(</span>
+          &quot;Size of array written was &quot; + size + &quot;, but number of elements written was &quot; + actualSize + &quot;. &quot;);
+    }
+<span class="nc" id="L298">  }</span>
+
+  /**
+   * Called to find the index for a datum within a union. By default calls
+   * {@link GenericData#resolveUnion(Schema,Object)}.
+   */
+  protected int resolveUnion(Schema union, Object datum) {
+<span class="nc" id="L305">    return data.resolveUnion(union, datum);</span>
+  }
+
+  /**
+   * Called by the default implementation of {@link #writeArray} to get the size
+   * of an array. The default implementation is for {@link Collection}.
+   */
+  protected long getArraySize(Object array) {
+<span class="nc" id="L313">    return ((Collection&lt;?&gt;) array).size();</span>
+  }
+
+  /**
+   * Called by the default implementation of {@link #writeArray} to enumerate
+   * array elements. The default implementation is for {@link Collection}.
+   */
+  protected Iterator&lt;?&gt; getArrayElements(Object array) {
+<span class="nc" id="L321">    return ((Collection&lt;?&gt;) array).iterator();</span>
+  }
+
+  /**
+   * Called to write a map. May be overridden for alternate map representations.
+   */
+  protected void writeMap(Schema schema, Object datum, Encoder out) throws IOException {
+<span class="nc" id="L328">    Schema value = schema.getValueType();</span>
+<span class="nc" id="L329">    int size = getMapSize(datum);</span>
+<span class="nc" id="L330">    int actualSize = 0;</span>
+<span class="nc" id="L331">    out.writeMapStart();</span>
+<span class="nc" id="L332">    out.setItemCount(size);</span>
+<span class="nc bnc" id="L333" title="All 2 branches missed.">    for (Map.Entry&lt;Object, Object&gt; entry : getMapEntries(datum)) {</span>
+<span class="nc" id="L334">      out.startItem();</span>
+      String key;
+      try {
+<span class="nc" id="L337">        key = entry.getKey().toString();</span>
+<span class="nc" id="L338">      } catch (NullPointerException npe) {</span>
+<span class="nc" id="L339">        TracingNullPointException tnpe = new TracingNullPointException(npe, Schema.create(Schema.Type.STRING), false);</span>
+<span class="nc" id="L340">        tnpe.tracePath(new MapKeyPredicate(null));</span>
+<span class="nc" id="L341">        throw tnpe;</span>
+<span class="nc" id="L342">      }</span>
+<span class="nc" id="L343">      writeString(key, out);</span>
+      try {
+<span class="nc" id="L345">        write(value, entry.getValue(), out);</span>
+<span class="nc" id="L346">      } catch (TracingNullPointException | TracingClassCastException | TracingAvroTypeException e) {</span>
+<span class="nc" id="L347">        e.tracePath(new MapKeyPredicate(key));</span>
+<span class="nc" id="L348">        throw e;</span>
+<span class="nc" id="L349">      }</span>
+<span class="nc" id="L350">      actualSize++;</span>
+<span class="nc" id="L351">    }</span>
+<span class="nc" id="L352">    out.writeMapEnd();</span>
+<span class="nc bnc" id="L353" title="All 2 branches missed.">    if (actualSize != size) {</span>
+<span class="nc" id="L354">      throw new ConcurrentModificationException(</span>
+          &quot;Size of map written was &quot; + size + &quot;, but number of entries written was &quot; + actualSize + &quot;. &quot;);
+    }
+<span class="nc" id="L357">  }</span>
+
+  /**
+   * Called by the default implementation of {@link #writeMap} to get the size of
+   * a map. The default implementation is for {@link Map}.
+   */
+  @SuppressWarnings(&quot;unchecked&quot;)
+  protected int getMapSize(Object map) {
+<span class="nc" id="L365">    return ((Map) map).size();</span>
+  }
+
+  /**
+   * Called by the default implementation of {@link #writeMap} to enumerate map
+   * elements. The default implementation is for {@link Map}.
+   */
+  @SuppressWarnings(&quot;unchecked&quot;)
+  protected Iterable&lt;Map.Entry&lt;Object, Object&gt;&gt; getMapEntries(Object map) {
+<span class="nc" id="L374">    return ((Map) map).entrySet();</span>
+  }
+
+  /**
+   * Called to write a string. May be overridden for alternate string
+   * representations.
+   */
+  protected void writeString(Schema schema, Object datum, Encoder out) throws IOException {
+<span class="nc" id="L382">    writeString(datum, out);</span>
+<span class="nc" id="L383">  }</span>
+
+  /**
+   * Called to write a string. May be overridden for alternate string
+   * representations.
+   */
+  protected void writeString(Object datum, Encoder out) throws IOException {
+<span class="nc" id="L390">    out.writeString((CharSequence) datum);</span>
+<span class="nc" id="L391">  }</span>
+
+  /**
+   * Called to write a bytes. May be overridden for alternate bytes
+   * representations.
+   */
+  protected void writeBytes(Object datum, Encoder out) throws IOException {
+<span class="nc" id="L398">    out.writeBytes((ByteBuffer) datum);</span>
+<span class="nc" id="L399">  }</span>
+
+  /**
+   * Called to write a fixed value. May be overridden for alternate fixed
+   * representations.
+   */
+  protected void writeFixed(Schema schema, Object datum, Encoder out) throws IOException {
+<span class="nc" id="L406">    out.writeFixed(((GenericFixed) datum).bytes(), 0, schema.getFixedSize());</span>
+<span class="nc" id="L407">  }</span>
+
+  private void error(Schema schema, Object datum) {
+<span class="nc" id="L410">    throw new AvroTypeException(&quot;value &quot; + SchemaUtil.describe(datum) + &quot; is not a &quot; + SchemaUtil.describe(schema));</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>
