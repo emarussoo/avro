@@ -1,3 +1,0 @@
-The LLM returned a wrong formatted output not following the requirement: Return exactly one Java class named ISW2TimeConversionsLLMTest.
-It seems like the LLM tried to format following a certain language, but ended up messing the output almost completely.
-Test generated are not considered.

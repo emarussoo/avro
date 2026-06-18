@@ -1,9 +1,0 @@
-org.apache.avro.data.TimeConversions$DateConversion
-org.apache.avro.data.TimeConversions$TimeMillisConversion
-org.apache.avro.data.TimeConversions$TimeMicrosConversion
-org.apache.avro.data.TimeConversions$TimestampMillisConversion
-org.apache.avro.data.TimeConversions$TimestampMicrosConversion
-org.apache.avro.data.TimeConversions$TimestampNanosConversion
-org.apache.avro.data.TimeConversions$LocalTimestampMillisConversion
-org.apache.avro.data.TimeConversions$LocalTimestampMicrosConversion
-org.apache.avro.data.TimeConversions$LocalTimestampNanosConversion
