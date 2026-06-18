@@ -31,7 +31,8 @@ import java.time.ZoneOffset;
 import java.util.concurrent.TimeUnit;
 
 public class TimeConversions {
-  private static final String ASSIGNMENT = " = ";
+  public TimeConversions() {
+  }
 
   public static class DateConversion extends Conversion<LocalDate> {
 
@@ -76,7 +77,7 @@ public class TimeConversions {
 
     @Override
     public String adjustAndSetValue(String varName, String valParamName) {
-      return varName + ASSIGNMENT + valParamName + ".truncatedTo(java.time.temporal.ChronoUnit.MILLIS);";
+      return varName + " = " + valParamName + ".truncatedTo(java.time.temporal.ChronoUnit.MILLIS);";
     }
 
     @Override
@@ -108,7 +109,7 @@ public class TimeConversions {
 
     @Override
     public String adjustAndSetValue(String varName, String valParamName) {
-      return varName + ASSIGNMENT + valParamName + ".truncatedTo(java.time.temporal.ChronoUnit.MICROS);";
+      return varName + " = " + valParamName + ".truncatedTo(java.time.temporal.ChronoUnit.MICROS);";
     }
 
     @Override
@@ -140,7 +141,7 @@ public class TimeConversions {
 
     @Override
     public String adjustAndSetValue(String varName, String valParamName) {
-      return varName + ASSIGNMENT + valParamName + ".truncatedTo(java.time.temporal.ChronoUnit.MILLIS);";
+      return varName + " = " + valParamName + ".truncatedTo(java.time.temporal.ChronoUnit.MILLIS);";
     }
 
     @Override
@@ -172,7 +173,7 @@ public class TimeConversions {
 
     @Override
     public String adjustAndSetValue(String varName, String valParamName) {
-      return varName + ASSIGNMENT + valParamName + ".truncatedTo(java.time.temporal.ChronoUnit.MICROS);";
+      return varName + " = " + valParamName + ".truncatedTo(java.time.temporal.ChronoUnit.MICROS);";
     }
 
     @Override
@@ -219,7 +220,7 @@ public class TimeConversions {
 
     @Override
     public String adjustAndSetValue(String varName, String valParamName) {
-      return varName + ASSIGNMENT + valParamName + ".truncatedTo(java.time.temporal.ChronoUnit.NANOS);";
+      return varName + " = " + valParamName + ".truncatedTo(java.time.temporal.ChronoUnit.NANOS);";
     }
 
     @Override

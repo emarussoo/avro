@@ -3,14 +3,15 @@ You are an expert Java developer.
 I want to improve the maintainability of the attached C0 class: TimeConversions.java.
 
 Create C2 without changing C0 functionality and by removing or reducing the code smells reported in the attached diagnostic file: last_class_smells.csv.
+Code smells must be removed or reduced only when doing so does not change the observable behavior, does not break compilation, does not alter the public API, and does not make any existing or provided test fail. If removing a smell would require changing the public API, changing constructor visibility, removing supported behavior, or invalidating existing tests, then the smell must be preserved and the original behavior must take precedence.
 
-For this C2 variant, the black-box test suite ISW2TimeConversionsBBTest.java is provided. The refactored class must pass this test suite, ignoring any tests marked with @Ignore.
+For this C2 variant, the black-box test suite ISW2TimeConversionsBBTest.java is provided. The refactored class must pass this test suite, ignoring the tests marked with @Ignore.
 
 Make sure that C2 satisfies the following constraints:
 
 1. Preserve the original package name.
 2. Preserve the Apache license header.
-3. Preserve the public API of C0, including public class names, nested class names, method signatures, return types, and visibility modifiers.
+3. Preserve the public API of C0, including public class names, nested class names, method signatures, return types, constructors, and visibility modifiers.
 4. The generated variant will be referred to as C2 in the experiment, but the Java public class name must remain TimeConversions.
 5. Do not introduce new external dependencies.
 6. Do not remove existing functionality.
