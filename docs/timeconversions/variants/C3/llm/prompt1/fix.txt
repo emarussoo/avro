@@ -1,0 +1,74 @@
+Modifiche effettuate sulla suite LLM generata per la variante C3
+
+Dopo aver generato la suite ISW2TimeConversionsC3LLMTest.java, la suite è stata eseguita sulla variante C3 di TimeConversions.java.
+
+L’esecuzione iniziale della suite C3_LLM ha prodotto 6 failure. Le failure riguardavano i test sulle conversioni timestamp e local timestamp:
+
+- timestampMillisConversionConvertsInstantAndAdjustsGeneratedSetterValue
+- timestampMicrosConversionConvertsInstantAndAdjustsGeneratedSetterValue
+- timestampNanosConversionConvertsInstantAndPreservesNanosecondPrecision
+- localTimestampMillisConversionUsesUtcTimelineWithoutSystemTimezone
+- localTimestampMicrosConversionUsesUtcTimelineWithoutSystemTimezone
+- localTimestampNanosConversionUsesUtcTimelineWithoutSystemTimezone
+
+Il problema non era nella variante C3, ma negli oracle temporali generati dall’LLM.
+
+In particolare, la suite usava valori epoch come:
+
+1_621_334_130_456L
+1_621_334_130_456_789L
+1_621_334_130_456_789_123L
+
+Questi valori corrispondono agli istanti:
+
+2021-05-18T10:35:30.456Z
+2021-05-18T10:35:30.456789Z
+2021-05-18T10:35:30.456789123Z
+
+Tuttavia, gli expected generati dall’LLM indicavano erroneamente:
+
+2021-05-18T10:15:30.456Z
+2021-05-18T10:15:30.456789Z
+2021-05-18T10:15:30.456789123Z
+
+La differenza tra expected e valore ottenuto era sempre di 20 minuti. Questo ha indicato che l’LLM aveva prodotto una coppia incoerente input/oracle: i valori numerici epoch erano corretti per le 10:35, ma gli expected erano stati scritti come se corrispondessero alle 10:15.
+
+Per correggere la suite, non è stata modificata la variante C3. Sono stati modificati soltanto gli expected temporali della suite LLM, sostituendo 10:15 con 10:35.
+
+Le correzioni principali sono state:
+
+Instant.parse("2021-05-18T10:15:30.456Z")
+è stato corretto in:
+Instant.parse("2021-05-18T10:35:30.456Z")
+
+Instant.parse("2021-05-18T10:15:30.456789Z")
+è stato corretto in:
+Instant.parse("2021-05-18T10:35:30.456789Z")
+
+Instant.parse("2021-05-18T10:15:30.456789123Z")
+è stato corretto in:
+Instant.parse("2021-05-18T10:35:30.456789123Z")
+
+Analogamente, per i test sulle local timestamp conversion, gli expected sono stati modificati da:
+
+LocalDateTime.of(2021, 5, 18, 10, 15, 30, ...)
+
+a:
+
+LocalDateTime.of(2021, 5, 18, 10, 35, 30, ...)
+
+La modifica è stata quindi una correzione degli oracle della suite di test generata dall’LLM, non una modifica al codice della variante C3.
+
+Dopo questa correzione, la suite C3_LLM è stata rieseguita sulla variante C3 e può essere considerata validata se termina con:
+
+Failures: 0
+Errors: 0
+
+Nel report, il risultato può essere indicato come:
+
+C3_LLM = P*
+
+dove P* indica che la suite passa dopo correzione manuale di oracle errati generati dall’LLM.
+
+Nota metodologica:
+La suite LLM generata per C3 conteneva oracle temporali incoerenti con i valori epoch usati nei test. Le correzioni hanno riguardato esclusivamente la suite di test e sono state necessarie per rendere gli expected coerenti con gli input numerici. La variante C3 non è stata modificata.

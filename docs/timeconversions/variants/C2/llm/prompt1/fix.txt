@@ -1,0 +1,8 @@
+Test output gave 5 failures.
+In order to fix the syntactical error those changes:
+
+assertEquals("field = value.truncatedTo (java.time.temporal.ChronoUnit.MILLIS);",
+into
+assertEquals("field = value.truncatedTo(java.time.temporal.ChronoUnit.MILLIS);",
+
+for every occurrence fixed the tests.

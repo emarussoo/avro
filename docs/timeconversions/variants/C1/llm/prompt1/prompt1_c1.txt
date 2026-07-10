@@ -1,0 +1,40 @@
+As a senior software tester with deep knowledge of Java and JUnit 4, generate unit tests for the Apache Avro class org.apache.avro.data.TimeConversions.
+INPUT: TimeConversions.java (attached) , Context (in prompt), Requirements (in prompt)
+OUTPUT: Downloadable file called ISW2TimeConversionsC1LLMTest.java containing the generated tests
+
+Context:
+TimeConversions contains several static inner conversion classes:
+- DateConversion
+- TimeMillisConversion
+- TimeMicrosConversion
+- TimestampMillisConversion
+- TimestampMicrosConversion
+- TimestampNanosConversion
+- LocalTimestampMillisConversion
+- LocalTimestampMicrosConversion
+- LocalTimestampNanosConversion
+
+These classes convert between Avro logical types and Java temporal types:
+- LocalDate
+- LocalTime
+- Instant
+- LocalDateTime
+
+Focus on the following methods:
+- fromInt
+- toInt
+- fromLong
+- toLong
+- getLogicalTypeName
+- getConvertedType
+- getRecommendedSchema
+- adjustAndSetValue
+
+Requirements:
+- Use JUnit 4, not JUnit 5.
+- Use package org.apache.avro.data.
+- Return exactly one Java class named ISW2TimeConversionsC1LLMTest.
+- Do not use current time, random values, or system timezone.
+- Use explicit deterministic values only.
+- Prefer meaningful assertEquals assertions over assertNotNull.
+- The generated tests must compile and pass in the Apache Avro Maven project.
