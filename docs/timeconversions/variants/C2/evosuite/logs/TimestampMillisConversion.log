@@ -1,0 +1,62 @@
+* EvoSuite 1.2.0
+* Going to generate test cases for class: org.apache.avro.data.TimeConversions$TimestampMillisConversion
+* Starting Client-0
+* Connecting to master process on port 17345
+* Analyzing classpath: 
+  - target/classes
+  - /Users/lele/.m2/repository/com/fasterxml/jackson/core/jackson-core/2.14.3/jackson-core-2.14.3.jar
+  - /Users/lele/.m2/repository/com/fasterxml/jackson/core/jackson-databind/2.14.3/jackson-databind-2.14.3.jar
+  - /Users/lele/.m2/repository/com/fasterxml/jackson/core/jackson-annotations/2.14.3/jackson-annotations-2.14.3.jar
+[MASTER] 17:42:45.566 [logback-1] WARN  InheritanceTree - Class not in inheritance graph: java.util.Locale$IsoCountryCode
+[MASTER] 17:42:45.574 [logback-1] WARN  InheritanceTree - Class not in inheritance graph: java.io.ObjectInputFilter
+[MASTER] 17:42:45.701 [logback-2] ERROR ConcreteClassAnalyzer - Problem for org.apache.avro.data.TimeConversions$TimestampMillisConversion. Class not found: jdk.Exported
+[MASTER] 17:42:45.701 [logback-2] ERROR ConcreteClassAnalyzer - Removing class from inheritance tree
+[MASTER] 17:42:45.701 [logback-2] ERROR ConcreteClassAnalyzer - Problem for org.apache.avro.data.TimeConversions$TimestampMillisConversion. Class not found: javax.jws.WebService
+[MASTER] 17:42:45.701 [logback-2] ERROR ConcreteClassAnalyzer - Removing class from inheritance tree
+[MASTER] 17:42:45.701 [logback-2] ERROR ConcreteClassAnalyzer - Problem for org.apache.avro.data.TimeConversions$TimestampMillisConversion. Class not found: javax.jws.WebParam
+[MASTER] 17:42:45.701 [logback-2] ERROR ConcreteClassAnalyzer - Removing class from inheritance tree
+[MASTER] 17:42:45.702 [logback-2] ERROR ConcreteClassAnalyzer - Problem for org.apache.avro.data.TimeConversions$TimestampMillisConversion. Class not found: javax.jws.HandlerChain
+[MASTER] 17:42:45.702 [logback-2] ERROR ConcreteClassAnalyzer - Removing class from inheritance tree
+[MASTER] 17:42:45.702 [logback-2] ERROR ConcreteClassAnalyzer - Problem for org.apache.avro.data.TimeConversions$TimestampMillisConversion. Class not found: javax.jws.WebMethod
+[MASTER] 17:42:45.702 [logback-2] ERROR ConcreteClassAnalyzer - Removing class from inheritance tree
+[MASTER] 17:42:45.702 [logback-2] ERROR ConcreteClassAnalyzer - Problem for org.apache.avro.data.TimeConversions$TimestampMillisConversion. Class not found: javax.jws.WebResult
+[MASTER] 17:42:45.702 [logback-2] ERROR ConcreteClassAnalyzer - Removing class from inheritance tree
+[MASTER] 17:42:45.702 [logback-2] ERROR ConcreteClassAnalyzer - Problem for org.apache.avro.data.TimeConversions$TimestampMillisConversion. Class not found: javax.jws.Oneway
+[MASTER] 17:42:45.702 [logback-2] ERROR ConcreteClassAnalyzer - Removing class from inheritance tree
+[MASTER] 17:42:45.702 [logback-2] ERROR ConcreteClassAnalyzer - Problem for org.apache.avro.data.TimeConversions$TimestampMillisConversion. Class not found: javax.jws.soap.InitParam
+[MASTER] 17:42:45.702 [logback-2] ERROR ConcreteClassAnalyzer - Removing class from inheritance tree
+[MASTER] 17:42:45.703 [logback-2] ERROR ConcreteClassAnalyzer - Problem for org.apache.avro.data.TimeConversions$TimestampMillisConversion. Class not found: javax.jws.soap.SOAPBinding
+[MASTER] 17:42:45.703 [logback-2] ERROR ConcreteClassAnalyzer - Removing class from inheritance tree
+[MASTER] 17:42:45.703 [logback-2] ERROR ConcreteClassAnalyzer - Problem for org.apache.avro.data.TimeConversions$TimestampMillisConversion. Class not found: javax.jws.soap.SOAPMessageHandler
+[MASTER] 17:42:45.703 [logback-2] ERROR ConcreteClassAnalyzer - Removing class from inheritance tree
+[MASTER] 17:42:45.703 [logback-2] ERROR ConcreteClassAnalyzer - Problem for org.apache.avro.data.TimeConversions$TimestampMillisConversion. Class not found: javax.jws.soap.SOAPMessageHandlers
+[MASTER] 17:42:45.703 [logback-2] ERROR ConcreteClassAnalyzer - Removing class from inheritance tree
+[MASTER] 17:42:45.899 [logback-1] WARN  InheritanceTree - Class not in inheritance graph: java.lang.module.ModuleFinder
+* Finished analyzing classpath
+* Generating tests for class org.apache.avro.data.TimeConversions$TimestampMillisConversion
+* Test criterion:
+  - Branch Coverage
+* Total number of test goals for DYNAMOSA: 7
+* Using seed 12345
+* Starting evolution
+[Progress:>                             0%] [Cov:>                                  0%]* Initial Number of Goals in DynaMOSA = 7 / 7
+[MASTER] 17:42:46.335 [logback-1] WARN  TestCluster - Failed to check cache for java.util.Comparator<T> : Type points to itself
+[Progress:>                             0%] [Cov:=============================>     85%][Progress:>                             0%] [Cov:===================================100%]
+* Search finished after 0s and 1 generations, 773 statements, best individual has fitness: 0.0
+* Minimizing test suite
+* Going to analyze the coverage criteria
+* Coverage analysis for criterion BRANCH
+* Coverage of criterion BRANCH: 100%
+* Total number of goals: 7
+* Number of covered goals: 7
+* Generated 4 tests with total length 12
+* Resulting test suite's coverage: 100%
+* Generating assertions
+* Resulting test suite's mutation score: 33%
+* Compiling and checking tests
+[MASTER] 17:42:47.935 [logback-1] WARN  JUnitAnalyzer - EvoSuite problem: tests set up a security manager, but they do not remove it after execution
+* Writing tests to file
+* Writing JUnit test case 'TimeConversions$TimestampMillisConversion_ESTest' to target/evosuite/C2/tests
+* Done!
+
+* Computation finished

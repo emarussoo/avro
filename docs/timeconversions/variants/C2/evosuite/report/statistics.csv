@@ -1,0 +1,10 @@
+TARGET_CLASS,criterion,Coverage,Total_Goals,Covered_Goals
+org.apache.avro.data.TimeConversions$DateConversion,BRANCH,1.0,6,6
+org.apache.avro.data.TimeConversions$TimeMillisConversion,BRANCH,1.0,7,7
+org.apache.avro.data.TimeConversions$TimeMicrosConversion,BRANCH,1.0,7,7
+org.apache.avro.data.TimeConversions$TimestampMillisConversion,BRANCH,1.0,7,7
+org.apache.avro.data.TimeConversions$TimestampMicrosConversion,BRANCH,1.0,10,10
+org.apache.avro.data.TimeConversions$TimestampNanosConversion,BRANCH,1.0,10,10
+org.apache.avro.data.TimeConversions$LocalTimestampMillisConversion,BRANCH,1.0,6,6
+org.apache.avro.data.TimeConversions$LocalTimestampMicrosConversion,BRANCH,1.0,6,6
+org.apache.avro.data.TimeConversions$LocalTimestampNanosConversion,BRANCH,1.0,6,6
