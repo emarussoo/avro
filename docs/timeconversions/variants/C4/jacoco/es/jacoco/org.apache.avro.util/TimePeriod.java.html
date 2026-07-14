@@ -1,0 +1,394 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TimePeriod.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Avro</a> &gt; <a href="index.source.html" class="el_package">org.apache.avro.util</a> &gt; <span class="el_source">TimePeriod.java</span></div><h1>TimePeriod.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.avro.util;
+
+import java.io.Serializable;
+import java.time.DateTimeException;
+import java.time.Duration;
+import java.time.Period;
+import java.time.chrono.ChronoPeriod;
+import java.time.chrono.IsoChronology;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.Temporal;
+import java.time.temporal.TemporalAmount;
+import java.time.temporal.TemporalUnit;
+import java.time.temporal.UnsupportedTemporalTypeException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+import static java.time.temporal.ChronoUnit.DAYS;
+import static java.time.temporal.ChronoUnit.MILLIS;
+import static java.time.temporal.ChronoUnit.MONTHS;
+import static java.util.Collections.unmodifiableList;
+import static java.util.Objects.requireNonNull;
+
+/**
+ * &lt;p&gt;
+ * A temporal amount to model an {@link org.apache.avro.LogicalTypes.Duration
+ * Avro duration} (the logical type).
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * It consists of a number of months, days and milliseconds, all modelled as an
+ * unsigned integer.
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * Compared to {@link Period java.time.Period}, this class has a smaller range
+ * ('only' supporting a little less than 358 million years), and cannot support
+ * negative periods.
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * Compared to {@link Duration java.time.Duration}, this class has less
+ * precision (milliseconds compared to nanoseconds), cannot support negative
+ * durations, and has a much smaller range. Where {@code java.time.Duration}
+ * supports fixed ranges up to about 68 years, {@code TimePeriod} can only
+ * handle about 49 days.
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * Comparison with the regular {@code java.time} classes:
+ * &lt;/p&gt;
+ *
+ * &lt;table&gt;
+ * &lt;tr&gt;
+ * &lt;th&gt;&lt;/th&gt;
+ * &lt;th&gt;TimePeriod&lt;/th&gt;
+ * &lt;th&gt;{@link Period}&lt;/th&gt;
+ * &lt;th&gt;{@link Duration}&lt;/th&gt;
+ * &lt;/tr&gt;
+ * &lt;tr&gt;
+ * &lt;td&gt;Precision&lt;/td&gt;
+ * &lt;td&gt;milliseconds&lt;/td&gt;
+ * &lt;td&gt;days&lt;/td&gt;
+ * &lt;td&gt;nanoseconds&lt;/td&gt;
+ * &lt;/tr&gt;
+ * &lt;tr&gt;
+ * &lt;td&gt;Time range (approx.)&lt;/td&gt;
+ * &lt;td&gt;0 &amp;endash; 49 days&lt;/td&gt;
+ * &lt;td&gt;unsupported&lt;/td&gt;
+ * &lt;td&gt;-68 &amp;endash; 68 years&lt;/td&gt;
+ * &lt;/tr&gt;
+ * &lt;tr&gt;
+ * &lt;td&gt;Date range (approx.)&lt;/td&gt;
+ * &lt;td&gt;0 to 370 million years&lt;/td&gt;
+ * &lt;td&gt;-2.3 to 2.3 billion years&lt;/td&gt;
+ * &lt;td&gt;unsupported&lt;/td&gt;
+ * &lt;/tr&gt;
+ * &lt;/table&gt;
+ *
+ * @see &lt;a href=
+ *      &quot;https://avro.apache.org/docs/current/specification/#duration&quot;&gt;Avro
+ *      specification on duration&lt;/a&gt;
+ */
+public final class TimePeriod implements TemporalAmount, Serializable {
+  private static final long MAX_UNSIGNED_INT = 0xffffffffL;
+  private static final long MONTHS_PER_YEAR = 12;
+  private static final long MONTHS_PER_DECADE = MONTHS_PER_YEAR * 10;
+  private static final long MONTHS_PER_CENTURY = MONTHS_PER_DECADE * 10;
+  private static final long MONTHS_PER_MILLENNIUM = MONTHS_PER_CENTURY * 10;
+  private static final long MILLIS_PER_SECOND = 1_000;
+  private static final long MILLIS_PER_MINUTE = MILLIS_PER_SECOND * 60;
+  private static final long MILLIS_PER_HOUR = MILLIS_PER_MINUTE * 60;
+  private static final long MILLIS_IN_HALF_DAY = MILLIS_PER_HOUR * 12;
+  private static final long MICROS_PER_MILLI = 1_000;
+  private static final long NANOS_PER_MILLI = 1_000_000;
+
+  private final long months;
+  private final long days;
+  private final long millis;
+
+  /**
+   * Create a TimePeriod from another TemporalAmount, such as a {@link Period} or
+   * a {@link Duration}.
+   *
+   * @param amount a temporal amount
+   * @return the corresponding TimePeriod
+   */
+  public static TimePeriod from(TemporalAmount amount) {
+<span class="nc bnc" id="L126" title="All 2 branches missed.">    if (requireNonNull(amount, &quot;amount&quot;) instanceof TimePeriod) {</span>
+<span class="nc" id="L127">      return (TimePeriod) amount;</span>
+    }
+<span class="nc bnc" id="L129" title="All 2 branches missed.">    if (amount instanceof ChronoPeriod) {</span>
+<span class="nc bnc" id="L130" title="All 2 branches missed.">      if (!IsoChronology.INSTANCE.equals(((ChronoPeriod) amount).getChronology())) {</span>
+<span class="nc" id="L131">        throw new DateTimeException(&quot;TimePeriod requires ISO chronology: &quot; + amount);</span>
+      }
+    }
+<span class="nc" id="L134">    long months = 0;</span>
+<span class="nc" id="L135">    long days = 0;</span>
+<span class="nc" id="L136">    long millis = 0;</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">    for (TemporalUnit unit : amount.getUnits()) {</span>
+<span class="nc bnc" id="L138" title="All 2 branches missed.">      if (unit instanceof ChronoUnit) {</span>
+<span class="nc" id="L139">        long unitAmount = amount.get(unit);</span>
+<span class="nc bnc" id="L140" title="All 15 branches missed.">        switch ((ChronoUnit) unit) {</span>
+        case MILLENNIA:
+<span class="nc" id="L142">          months = unsignedInt(months + unitAmount * MONTHS_PER_MILLENNIUM);</span>
+<span class="nc" id="L143">          break;</span>
+        case CENTURIES:
+<span class="nc" id="L145">          months = unsignedInt(months + unitAmount * MONTHS_PER_CENTURY);</span>
+<span class="nc" id="L146">          break;</span>
+        case DECADES:
+<span class="nc" id="L148">          months = unsignedInt(months + unitAmount * MONTHS_PER_DECADE);</span>
+<span class="nc" id="L149">          break;</span>
+        case YEARS:
+<span class="nc" id="L151">          months = unsignedInt(months + unitAmount * MONTHS_PER_YEAR);</span>
+<span class="nc" id="L152">          break;</span>
+        case MONTHS:
+<span class="nc" id="L154">          months = unsignedInt(months + unitAmount);</span>
+<span class="nc" id="L155">          break;</span>
+        case WEEKS:
+<span class="nc" id="L157">          days = unsignedInt(days + unitAmount * 7);</span>
+<span class="nc" id="L158">          break;</span>
+        case DAYS:
+<span class="nc" id="L160">          days = unsignedInt(days + unitAmount);</span>
+<span class="nc" id="L161">          break;</span>
+        case HALF_DAYS:
+<span class="nc" id="L163">          days = unsignedInt(days + (unitAmount / 2)); // Truncates halves</span>
+<span class="nc bnc" id="L164" title="All 2 branches missed.">          if (unitAmount % 2 != 0) {</span>
+<span class="nc" id="L165">            millis = unsignedInt(millis + MILLIS_IN_HALF_DAY);</span>
+          }
+          break;
+        case HOURS:
+<span class="nc" id="L169">          millis = unsignedInt(millis + unitAmount * MILLIS_PER_HOUR);</span>
+<span class="nc" id="L170">          break;</span>
+        case MINUTES:
+<span class="nc" id="L172">          millis = unsignedInt(millis + unitAmount * MILLIS_PER_MINUTE);</span>
+<span class="nc" id="L173">          break;</span>
+        case SECONDS:
+<span class="nc" id="L175">          millis = unsignedInt(millis + unitAmount * MILLIS_PER_SECOND);</span>
+<span class="nc" id="L176">          break;</span>
+        case MILLIS:
+<span class="nc" id="L178">          millis = unsignedInt(millis + unitAmount);</span>
+<span class="nc" id="L179">          break;</span>
+        case MICROS:
+<span class="nc bnc" id="L181" title="All 2 branches missed.">          if (unitAmount % MICROS_PER_MILLI != 0) {</span>
+<span class="nc" id="L182">            throw new DateTimeException(</span>
+                &quot;Cannot add &quot; + unitAmount + &quot; microseconds: not a whole number of milliseconds&quot;);
+          }
+<span class="nc" id="L185">          millis = unsignedInt(millis + unitAmount / MICROS_PER_MILLI);</span>
+<span class="nc" id="L186">          break;</span>
+        case NANOS:
+<span class="nc bnc" id="L188" title="All 2 branches missed.">          if (unitAmount % NANOS_PER_MILLI != 0) {</span>
+<span class="nc" id="L189">            throw new DateTimeException(</span>
+                &quot;Cannot add &quot; + unitAmount + &quot; nanoseconds: not a whole number of milliseconds&quot;);
+          }
+<span class="nc" id="L192">          millis = unsignedInt(millis + unitAmount / NANOS_PER_MILLI);</span>
+<span class="nc" id="L193">          break;</span>
+        default:
+<span class="nc" id="L195">          throw new UnsupportedTemporalTypeException(&quot;Unsupported unit: &quot; + unit);</span>
+        }
+<span class="nc" id="L197">      } else {</span>
+<span class="nc" id="L198">        throw new UnsupportedTemporalTypeException(&quot;Unsupported unit: &quot; + unit);</span>
+      }
+<span class="nc" id="L200">    }</span>
+<span class="nc" id="L201">    return new TimePeriod(months, days, millis);</span>
+  }
+
+  /**
+   * Create a TimePeriod from a number of months, days and milliseconds
+   *
+   * @param months a number of months
+   * @param days   a number of days
+   * @param millis a number of milliseconds
+   * @return the corresponding TimePeriod
+   * @throws ArithmeticException if any of the parameters does not fit an unsigned
+   *                             long (0..4294967296)
+   */
+  public static TimePeriod of(long months, long days, long millis) {
+<span class="nc" id="L215">    return new TimePeriod(unsignedInt(months), unsignedInt(days), unsignedInt(millis));</span>
+  }
+
+  private static long unsignedInt(long number) {
+<span class="nc bnc" id="L219" title="All 2 branches missed.">    if (number != (number &amp; MAX_UNSIGNED_INT)) {</span>
+<span class="nc" id="L220">      throw new ArithmeticException(&quot;Overflow/underflow of unsigned int&quot;);</span>
+    }
+<span class="nc" id="L222">    return number;</span>
+  }
+
+<span class="nc" id="L225">  private TimePeriod(long months, long days, long millis) {</span>
+<span class="nc" id="L226">    this.months = months;</span>
+<span class="nc" id="L227">    this.days = days;</span>
+<span class="nc" id="L228">    this.millis = millis;</span>
+<span class="nc" id="L229">  }</span>
+
+  public Duration toDuration() {
+<span class="nc" id="L232">    return Duration.from(this);</span>
+  }
+
+  public Period toPeriod() {
+<span class="nc bnc" id="L236" title="All 2 branches missed.">    if (isDateBased()) {</span>
+      // We use unsigned ints, which have double the range of a signed int that
+      // Period uses. We can split months to years and months to ensure there's no
+      // overflow. But we cannot split days, as both days and months have varying
+      // lengths.
+<span class="nc" id="L241">      int yearsAsInt = (int) (months / MONTHS_PER_YEAR);</span>
+<span class="nc" id="L242">      int monthsAsInt = (int) (months % MONTHS_PER_YEAR);</span>
+<span class="nc" id="L243">      int daysAsInt = (int) days;</span>
+<span class="nc bnc" id="L244" title="All 2 branches missed.">      if (days != daysAsInt) {</span>
+<span class="nc" id="L245">        throw new DateTimeException(&quot;Too many days: a Period can contain at most &quot; + Integer.MAX_VALUE + &quot; days.&quot;);</span>
+      }
+<span class="nc" id="L247">      return Period.ofYears(yearsAsInt).withMonths(monthsAsInt).withDays(daysAsInt);</span>
+    }
+<span class="nc" id="L249">    throw new DateTimeException(&quot;Cannot convert this TimePeriod to a Period: is not date based&quot;);</span>
+  }
+
+  /**
+   * Determines if the TimePeriod is date based (i.e., if its milliseconds
+   * component is 0).
+   *
+   * @return {@code true} iff the TimePeriod is date based
+   */
+  public boolean isDateBased() {
+<span class="nc bnc" id="L259" title="All 2 branches missed.">    return millis == 0;</span>
+  }
+
+  /**
+   * Determines if the TimePeriod is time based (i.e., if its months and days
+   * components are 0).
+   *
+   * @return {@code true} iff the TimePeriod is time based
+   */
+  public boolean isTimeBased() {
+<span class="nc bnc" id="L269" title="All 4 branches missed.">    return months == 0 &amp;&amp; days == 0;</span>
+  }
+
+  public long getMonths() {
+<span class="nc" id="L273">    return months;</span>
+  }
+
+  public long getDays() {
+<span class="nc" id="L277">    return days;</span>
+  }
+
+  public long getMillis() {
+<span class="nc" id="L281">    return millis;</span>
+  }
+
+  @Override
+  public long get(TemporalUnit unit) {
+<span class="nc bnc" id="L286" title="All 2 branches missed.">    if (unit == MONTHS) {</span>
+<span class="nc" id="L287">      return months;</span>
+<span class="nc bnc" id="L288" title="All 2 branches missed.">    } else if (unit == DAYS) {</span>
+<span class="nc" id="L289">      return days;</span>
+<span class="nc bnc" id="L290" title="All 2 branches missed.">    } else if (unit == MILLIS) {</span>
+<span class="nc" id="L291">      return millis;</span>
+    } else {
+<span class="nc" id="L293">      throw new UnsupportedTemporalTypeException(&quot;Unsupported unit: &quot; + unit);</span>
+    }
+  }
+
+  @Override
+  public List&lt;TemporalUnit&gt; getUnits() {
+<span class="nc" id="L299">    List&lt;TemporalUnit&gt; units = new ArrayList&lt;&gt;();</span>
+    // The zero-checks ensure compatibility with the Java Time classes Period and
+    // Duration where possible.
+<span class="nc bnc" id="L302" title="All 2 branches missed.">    if (months != 0) {</span>
+<span class="nc" id="L303">      units.add(MONTHS);</span>
+    }
+<span class="nc bnc" id="L305" title="All 2 branches missed.">    if (days != 0) {</span>
+<span class="nc" id="L306">      units.add(DAYS);</span>
+    }
+<span class="nc bnc" id="L308" title="All 2 branches missed.">    if (millis != 0) {</span>
+<span class="nc" id="L309">      units.add(MILLIS);</span>
+    }
+<span class="nc" id="L311">    return unmodifiableList(units);</span>
+  }
+
+  @Override
+  public Temporal addTo(Temporal temporal) {
+<span class="nc" id="L316">    return addTo(temporal, months, days, millis);</span>
+  }
+
+  @Override
+  public Temporal subtractFrom(Temporal temporal) {
+<span class="nc" id="L321">    return addTo(temporal, -months, -days, -millis);</span>
+  }
+
+  private Temporal addTo(Temporal temporal, long months, long days, long millis) {
+    // The zero-checks ensure we can add a TimePeriod to a Temporal even when it
+    // does not support all fields, as long as the unsupported fields are zero.
+<span class="nc bnc" id="L327" title="All 2 branches missed.">    if (months != 0) {</span>
+<span class="nc" id="L328">      temporal = temporal.plus(months, MONTHS);</span>
+    }
+<span class="nc bnc" id="L330" title="All 2 branches missed.">    if (days != 0) {</span>
+<span class="nc" id="L331">      temporal = temporal.plus(days, DAYS);</span>
+    }
+<span class="nc bnc" id="L333" title="All 2 branches missed.">    if (millis != 0) {</span>
+<span class="nc" id="L334">      temporal = temporal.plus(millis, MILLIS);</span>
+    }
+<span class="nc" id="L336">    return temporal;</span>
+  }
+
+  @Override
+  public boolean equals(Object o) {
+<span class="nc bnc" id="L341" title="All 2 branches missed.">    if (this == o) {</span>
+<span class="nc" id="L342">      return true;</span>
+    }
+<span class="nc bnc" id="L344" title="All 4 branches missed.">    if (o == null || getClass() != o.getClass()) {</span>
+<span class="nc" id="L345">      return false;</span>
+    }
+<span class="nc" id="L347">    TimePeriod that = (TimePeriod) o;</span>
+<span class="nc bnc" id="L348" title="All 6 branches missed.">    return months == that.months &amp;&amp; days == that.days &amp;&amp; millis == that.millis;</span>
+  }
+
+  @Override
+  public int hashCode() {
+<span class="nc" id="L353">    return Objects.hash(months, days, millis);</span>
+  }
+
+  @Override
+  public String toString() {
+<span class="nc" id="L358">    StringBuilder buffer = new StringBuilder();</span>
+<span class="nc" id="L359">    buffer.append(&quot;P&quot;);</span>
+<span class="nc bnc" id="L360" title="All 2 branches missed.">    if (months != 0) {</span>
+<span class="nc" id="L361">      int years = (int) (months / MONTHS_PER_YEAR);</span>
+<span class="nc" id="L362">      int monthsLeft = (int) (months % MONTHS_PER_YEAR);</span>
+<span class="nc bnc" id="L363" title="All 2 branches missed.">      if (years != 0) {</span>
+<span class="nc" id="L364">        buffer.append(years).append(&quot;Y&quot;);</span>
+      }
+<span class="nc bnc" id="L366" title="All 2 branches missed.">      if (monthsLeft != 0) {</span>
+<span class="nc" id="L367">        buffer.append(monthsLeft).append(&quot;M&quot;);</span>
+      }
+    }
+<span class="nc bnc" id="L370" title="All 6 branches missed.">    if (days != 0 || (months == 0 &amp;&amp; millis == 0)) {</span>
+<span class="nc" id="L371">      buffer.append(days);</span>
+    }
+<span class="nc bnc" id="L373" title="All 2 branches missed.">    if (millis != 0) {</span>
+<span class="nc" id="L374">      long millisLeft = millis;</span>
+<span class="nc" id="L375">      int hours = (int) (millisLeft / MILLIS_PER_HOUR);</span>
+<span class="nc" id="L376">      millisLeft -= MILLIS_PER_HOUR * hours;</span>
+<span class="nc" id="L377">      int minutes = (int) (millisLeft / MILLIS_PER_MINUTE);</span>
+<span class="nc" id="L378">      millisLeft -= MILLIS_PER_MINUTE * minutes;</span>
+<span class="nc" id="L379">      int seconds = (int) (millisLeft / MILLIS_PER_SECOND);</span>
+<span class="nc" id="L380">      millisLeft -= MILLIS_PER_SECOND * seconds;</span>
+<span class="nc bnc" id="L381" title="All 2 branches missed.">      if (millisLeft != 0) {</span>
+<span class="nc" id="L382">        buffer.append(String.format(&quot;T%02d:%02d:%02d.%03d&quot;, hours, minutes, seconds, millisLeft));</span>
+<span class="nc bnc" id="L383" title="All 2 branches missed.">      } else if (seconds != 0) {</span>
+<span class="nc" id="L384">        buffer.append(String.format(&quot;T%02d:%02d:%02d&quot;, hours, minutes, seconds));</span>
+<span class="nc bnc" id="L385" title="All 2 branches missed.">      } else if (minutes != 0) {</span>
+<span class="nc" id="L386">        buffer.append(String.format(&quot;T%02d:%02d&quot;, hours, minutes));</span>
+      } else {
+<span class="nc" id="L388">        buffer.append(String.format(&quot;T%02d&quot;, hours));</span>
+      }
+    }
+<span class="nc" id="L391">    return buffer.toString();</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
