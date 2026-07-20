@@ -1,0 +1,37 @@
+* EvoSuite 1.2.0
+* Going to generate test cases for class: org.apache.avro.Schema$Type
+* Starting Client-0
+* Connecting to master process on port 17345
+* Analyzing classpath: 
+  - target/classes
+  - /Users/lele/.m2/repository/com/fasterxml/jackson/core/jackson-core/2.14.3/jackson-core-2.14.3.jar
+  - /Users/lele/.m2/repository/com/fasterxml/jackson/core/jackson-databind/2.14.3/jackson-databind-2.14.3.jar
+  - /Users/lele/.m2/repository/com/fasterxml/jackson/core/jackson-annotations/2.14.3/jackson-annotations-2.14.3.jar
+* Finished analyzing classpath
+* Generating tests for class org.apache.avro.Schema$Type
+* Test criterion:
+  - Branch Coverage
+[Progress:>                             0%] [Cov:>                                  0%]* Total number of test goals for DYNAMOSA: 1
+* Using seed 12345
+* Starting evolution
+* Initial Number of Goals in DynaMOSA = 1 / 1
+[Progress:>                             0%] [Cov:===================================100%]
+* Search finished after 0s and 0 generations, 136 statements, best individual has fitness: 0.0
+* Minimizing test suite
+* Going to analyze the coverage criteria
+* Coverage analysis for criterion BRANCH
+* Coverage of criterion BRANCH: 100%
+* Total number of goals: 1
+* Number of covered goals: 1
+* Generated 1 tests with total length 2
+* Resulting test suite's coverage: 100%
+* Generating assertions
+* Resulting test suite's mutation score: 100%
+* Compiling and checking tests
+[MASTER] 16:08:34.783 [logback-1] WARN  JUnitAnalyzer - EvoSuite problem: tests set up a security manager, but they do not remove it after execution
+[MASTER] 16:08:35.098 [logback-1] WARN  JUnitAnalyzer - EvoSuite problem: tests set up a security manager, but they do not remove it after execution
+* Writing tests to file
+* Writing JUnit test case 'Schema$Type_ESTest' to target/evosuite/C0/tests
+* Done!
+
+* Computation finished
