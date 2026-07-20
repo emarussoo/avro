@@ -1,0 +1,299 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SystemLimitException.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Avro</a> &gt; <a href="index.source.html" class="el_package">org.apache.avro</a> &gt; <span class="el_source">SystemLimitException.java</span></div><h1>SystemLimitException.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.avro;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * Thrown to prevent making large allocations when reading potentially
+ * pathological input data from an untrusted source.
+ * &lt;p/&gt;
+ * The following system properties can be set to limit the size of bytes,
+ * strings and collection types to be allocated:
+ * &lt;ul&gt;
+ * &lt;li&gt;&lt;tt&gt;org.apache.avro.limits.byte.maxLength&lt;/tt&gt;&lt;/li&gt; limits the maximum
+ * size of &lt;tt&gt;byte&lt;/tt&gt; types.&lt;/li&gt;
+ * &lt;li&gt;&lt;tt&gt;org.apache.avro.limits.collectionItems.maxLength&lt;/tt&gt;&lt;/li&gt; limits the
+ * maximum number of &lt;tt&gt;map&lt;/tt&gt; and &lt;tt&gt;list&lt;/tt&gt; items that can be read at
+ * once single sequence.&lt;/li&gt;
+ * &lt;li&gt;&lt;tt&gt;org.apache.avro.limits.string.maxLength&lt;/tt&gt;&lt;/li&gt; limits the maximum
+ * size of &lt;tt&gt;string&lt;/tt&gt; types.&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * The default is to permit sizes up to {@link #MAX_ARRAY_VM_LIMIT}.
+ */
+public class SystemLimitException extends AvroRuntimeException {
+
+  /**
+   * The maximum length of array to allocate (unless necessary). Some VMs reserve
+   * some header words in an array. Attempts to allocate larger arrays may result
+   * in {@code OutOfMemoryError: Requested array size exceeds VM limit}
+   *
+   * @see &lt;a href=&quot;https://bugs.openjdk.org/browse/JDK-8246725&quot;&gt;JDK-8246725&lt;/a&gt;
+   */
+  // VisibleForTesting
+  static final int MAX_ARRAY_VM_LIMIT = Integer.MAX_VALUE - 8;
+
+  public static final String MAX_BYTES_LENGTH_PROPERTY = &quot;org.apache.avro.limits.bytes.maxLength&quot;;
+  public static final String MAX_COLLECTION_LENGTH_PROPERTY = &quot;org.apache.avro.limits.collectionItems.maxLength&quot;;
+  public static final String MAX_STRING_LENGTH_PROPERTY = &quot;org.apache.avro.limits.string.maxLength&quot;;
+
+<span class="fc" id="L58">  private static int maxBytesLength = MAX_ARRAY_VM_LIMIT;</span>
+<span class="fc" id="L59">  private static int maxCollectionLength = MAX_ARRAY_VM_LIMIT;</span>
+<span class="fc" id="L60">  private static int maxStringLength = MAX_ARRAY_VM_LIMIT;</span>
+
+<span class="fc" id="L62">  private static final Logger LOG = LoggerFactory.getLogger(SystemLimitException.class);</span>
+
+  /**
+   * System property declaring max size of any decompression stream: {@value}.
+   */
+  public static final String MAX_DECOMPRESS_LENGTH_PROPERTY = &quot;org.apache.avro.limits.decompress.maxLength&quot;;
+
+  /**
+   * Default limit when it is lower than the heap-aware limit: {@value}.
+   */
+  private static final long DEFAULT_MAX_DECOMPRESS_LENGTH = 200L * 1024 * 1024;
+
+  /**
+   * Keep the default decompression limit below the maximum heap to avoid allowing
+   * a single block to exhaust constrained JVMs: {@value}.
+   */
+  private static final long DEFAULT_MAX_DECOMPRESS_HEAP_FRACTION = 4;
+
+  /**
+   * Calculated max decompress length.
+   */
+<span class="fc" id="L83">  public static final long MAX_DECOMPRESS_LENGTH = getLongLimitFromProperty(MAX_DECOMPRESS_LENGTH_PROPERTY,</span>
+<span class="fc" id="L84">      defaultMaxDecompressLength());</span>
+
+  static {
+<span class="fc" id="L87">    resetLimits();</span>
+<span class="fc" id="L88">  }</span>
+
+  public SystemLimitException(String message) {
+<span class="nc" id="L91">    super(message);</span>
+<span class="nc" id="L92">  }</span>
+
+  /**
+   * Get an integer value stored in a system property, used to configure the
+   * system behaviour of decoders
+   *
+   * @param property     The system property to fetch
+   * @param defaultValue The value to use if the system property is not present or
+   *                     parsable as an int
+   * @return The value from the system property
+   */
+  private static int getLimitFromProperty(String property, int defaultValue) {
+<span class="fc" id="L104">    String o = System.getProperty(property);</span>
+<span class="fc" id="L105">    int i = defaultValue;</span>
+<span class="pc bpc" id="L106" title="1 of 2 branches missed.">    if (o != null) {</span>
+      try {
+<span class="nc" id="L108">        i = Integer.parseUnsignedInt(o);</span>
+<span class="nc" id="L109">      } catch (NumberFormatException nfe) {</span>
+<span class="nc" id="L110">        LoggerFactory.getLogger(SystemLimitException.class).warn(&quot;Could not parse property &quot; + property + &quot;: &quot; + o,</span>
+            nfe);
+<span class="nc" id="L112">      }</span>
+    }
+<span class="fc" id="L114">    return i;</span>
+  }
+
+  /**
+   * Get a long value stored in a system property, used to configure the system
+   * behaviour of output.
+   *
+   * @param property     The system property to fetch
+   * @param defaultValue The value to use if the system property is not present or
+   *                     parsable as a long
+   * @return The value from the system property
+   */
+  private static long getLongLimitFromProperty(String property, long defaultValue) {
+<span class="fc" id="L127">    String prop = System.getProperty(property);</span>
+<span class="fc" id="L128">    long limit = defaultValue;</span>
+<span class="pc bpc" id="L129" title="1 of 2 branches missed.">    if (prop != null) {</span>
+      try {
+<span class="nc" id="L131">        long parsed = Long.parseLong(prop);</span>
+<span class="nc bnc" id="L132" title="All 2 branches missed.">        if (parsed &lt;= 0) {</span>
+<span class="nc" id="L133">          LOG.warn(&quot;Invalid value '{}' for property '{}': must be positive. Using default: {}&quot;, prop, property,</span>
+<span class="nc" id="L134">              defaultValue);</span>
+        } else {
+<span class="nc" id="L136">          limit = parsed;</span>
+        }
+<span class="nc" id="L138">      } catch (NumberFormatException e) {</span>
+<span class="nc" id="L139">        LOG.warn(&quot;Could not parse property '{}' value '{}'. Using default: {}&quot;, property, prop, defaultValue);</span>
+<span class="nc" id="L140">      }</span>
+    }
+<span class="fc" id="L142">    return limit;</span>
+  }
+
+  /**
+   * Calculate a max decompression length as a fraction of the maximum memory of
+   * the runtime.
+   * 
+   * @return the calculated max default decompression length.
+   */
+  private static long defaultMaxDecompressLength() {
+<span class="fc" id="L152">    return Math.min(DEFAULT_MAX_DECOMPRESS_LENGTH,</span>
+<span class="fc" id="L153">        Math.max(1L, Runtime.getRuntime().maxMemory() / DEFAULT_MAX_DECOMPRESS_HEAP_FRACTION));</span>
+  }
+
+  /**
+   * Check to ensure that reading the bytes is within the specified limits.
+   *
+   * @param length The proposed size of the bytes to read
+   * @return The size of the bytes if and only if it is within the limit and
+   *         non-negative.
+   * @throws UnsupportedOperationException if reading the datum would allocate a
+   *                                       collection that the Java VM would be
+   *                                       unable to handle
+   * @throws SystemLimitException          if the decoding should fail because it
+   *                                       would otherwise result in an allocation
+   *                                       exceeding the set limit
+   * @throws AvroRuntimeException          if the length is negative
+   */
+  public static int checkMaxBytesLength(long length) {
+<span class="pc bpc" id="L171" title="1 of 2 branches missed.">    if (length &lt; 0) {</span>
+<span class="nc" id="L172">      throw new AvroRuntimeException(&quot;Malformed data. Length is negative: &quot; + length);</span>
+    }
+<span class="pc bpc" id="L174" title="1 of 2 branches missed.">    if (length &gt; MAX_ARRAY_VM_LIMIT) {</span>
+<span class="nc" id="L175">      throw new UnsupportedOperationException(</span>
+          &quot;Cannot read arrays longer than &quot; + MAX_ARRAY_VM_LIMIT + &quot; bytes in Java library&quot;);
+    }
+<span class="pc bpc" id="L178" title="1 of 2 branches missed.">    if (length &gt; maxBytesLength) {</span>
+<span class="nc" id="L179">      throw new SystemLimitException(&quot;Bytes length &quot; + length + &quot; exceeds maximum allowed&quot;);</span>
+    }
+<span class="fc" id="L181">    return (int) length;</span>
+  }
+
+  /**
+   * Check to ensure that reading the specified number of items remains within the
+   * specified limits.
+   *
+   * @param existing The number of elements items read in the collection
+   * @param items    The next number of items to read. In normal usage, this is
+   *                 always a positive, permitted value. Negative and zero values
+   *                 have a special meaning in Avro decoding.
+   * @return The total number of items in the collection if and only if it is
+   *         within the limit and non-negative.
+   * @throws UnsupportedOperationException if reading the items would allocate a
+   *                                       collection that the Java VM would be
+   *                                       unable to handle
+   * @throws SystemLimitException          if the decoding should fail because it
+   *                                       would otherwise result in an allocation
+   *                                       exceeding the set limit
+   * @throws AvroRuntimeException          if the length is negative
+   */
+  public static int checkMaxCollectionLength(long existing, long items) {
+<span class="nc" id="L203">    long length = existing + items;</span>
+<span class="nc bnc" id="L204" title="All 2 branches missed.">    if (existing &lt; 0) {</span>
+<span class="nc" id="L205">      throw new AvroRuntimeException(&quot;Malformed data. Length is negative: &quot; + existing);</span>
+    }
+<span class="nc bnc" id="L207" title="All 2 branches missed.">    if (items &lt; 0) {</span>
+<span class="nc" id="L208">      throw new AvroRuntimeException(&quot;Malformed data. Length is negative: &quot; + items);</span>
+    }
+<span class="nc bnc" id="L210" title="All 4 branches missed.">    if (length &gt; MAX_ARRAY_VM_LIMIT || length &lt; existing) {</span>
+<span class="nc" id="L211">      throw new UnsupportedOperationException(</span>
+          &quot;Cannot read collections larger than &quot; + MAX_ARRAY_VM_LIMIT + &quot; items in Java library&quot;);
+    }
+<span class="nc bnc" id="L214" title="All 2 branches missed.">    if (length &gt; maxCollectionLength) {</span>
+<span class="nc" id="L215">      throw new SystemLimitException(&quot;Collection length &quot; + length + &quot; exceeds maximum allowed&quot;);</span>
+    }
+<span class="nc" id="L217">    return (int) length;</span>
+  }
+
+  /**
+   * Check to ensure that reading the specified number of items remains within the
+   * specified limits.
+   *
+   * @param items The next number of items to read. In normal usage, this is
+   *              always a positive, permitted value. Negative and zero values
+   *              have a special meaning in Avro decoding.
+   * @return The total number of items in the collection if and only if it is
+   *         within the limit and non-negative.
+   * @throws UnsupportedOperationException if reading the items would allocate a
+   *                                       collection that the Java VM would be
+   *                                       unable to handle
+   * @throws SystemLimitException          if the decoding should fail because it
+   *                                       would otherwise result in an allocation
+   *                                       exceeding the set limit
+   * @throws AvroRuntimeException          if the length is negative
+   */
+  public static int checkMaxCollectionLength(long items) {
+<span class="nc bnc" id="L238" title="All 2 branches missed.">    if (items &gt; MAX_ARRAY_VM_LIMIT) {</span>
+<span class="nc" id="L239">      throw new UnsupportedOperationException(</span>
+          &quot;Cannot read collections larger than &quot; + MAX_ARRAY_VM_LIMIT + &quot; items in Java library&quot;);
+    }
+<span class="nc bnc" id="L242" title="All 2 branches missed.">    if (items &gt; maxCollectionLength) {</span>
+<span class="nc" id="L243">      throw new SystemLimitException(</span>
+          &quot;Collection length &quot; + items + &quot; exceeds the maximum allowed of &quot; + maxCollectionLength);
+    }
+<span class="nc" id="L246">    return (int) items;</span>
+  }
+
+  /**
+   * Check to ensure that reading the string size is within the specified limits.
+   *
+   * @param length The proposed size of the string to read
+   * @return The size of the string if and only if it is within the limit and
+   *         non-negative.
+   * @throws UnsupportedOperationException if reading the items would allocate a
+   *                                       collection that the Java VM would be
+   *                                       unable to handle
+   * @throws SystemLimitException          if the decoding should fail because it
+   *                                       would otherwise result in an allocation
+   *                                       exceeding the set limit
+   * @throws AvroRuntimeException          if the length is negative
+   */
+  public static int checkMaxStringLength(long length) {
+<span class="nc bnc" id="L264" title="All 2 branches missed.">    if (length &lt; 0) {</span>
+<span class="nc" id="L265">      throw new AvroRuntimeException(&quot;Malformed data. Length is negative: &quot; + length);</span>
+    }
+<span class="nc bnc" id="L267" title="All 2 branches missed.">    if (length &gt; MAX_ARRAY_VM_LIMIT) {</span>
+<span class="nc" id="L268">      throw new UnsupportedOperationException(&quot;Cannot read strings longer than &quot; + MAX_ARRAY_VM_LIMIT + &quot; bytes&quot;);</span>
+    }
+<span class="nc bnc" id="L270" title="All 2 branches missed.">    if (length &gt; maxStringLength) {</span>
+<span class="nc" id="L271">      throw new SystemLimitException(&quot;String length &quot; + length + &quot; exceeds maximum allowed&quot;);</span>
+    }
+<span class="nc" id="L273">    return (int) length;</span>
+  }
+
+  /**
+   * Check there is capacity to write data to a stream.
+   *
+   * @param limit        total capacity limit
+   * @param streamLength current stream size
+   * @param bytes        bytes to add to the stream
+   * @throws SystemLimitException if the limit is exceeded.
+   */
+  public static void checkMaxDecompressCapacity(long limit, long streamLength, int bytes) {
+<span class="nc bnc" id="L285" title="All 2 branches missed.">    if (streamLength + bytes &gt; limit) {</span>
+<span class="nc" id="L286">      throw new SystemLimitException(</span>
+<span class="nc" id="L287">          String.format(&quot;Buffer size %,d (bytes) exceeds maximum allowed size %,d.&quot;, (streamLength + bytes), limit));</span>
+    }
+<span class="nc" id="L289">  }</span>
+
+  /** Reread the limits from the system properties. */
+  // VisibleForTesting
+  static void resetLimits() {
+<span class="fc" id="L294">    maxBytesLength = getLimitFromProperty(MAX_BYTES_LENGTH_PROPERTY, MAX_ARRAY_VM_LIMIT);</span>
+<span class="fc" id="L295">    maxCollectionLength = getLimitFromProperty(MAX_COLLECTION_LENGTH_PROPERTY, MAX_ARRAY_VM_LIMIT);</span>
+<span class="fc" id="L296">    maxStringLength = getLimitFromProperty(MAX_STRING_LENGTH_PROPERTY, MAX_ARRAY_VM_LIMIT);</span>
+<span class="fc" id="L297">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
