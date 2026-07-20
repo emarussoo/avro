@@ -101,6 +101,6 @@ jobs:
         working-directory: lang/java
         run: |
           mvn -pl avro -am clean test \
-            -Dtest='ISW2SchemaBBTest,ISW2SchemaRNDTest,ISW2SchemaESTest' \
+            -Dtest='ISW2SchemaBBTest,ISW2SchemaRNDTest,ISW2SchemaESTest, ISW2SchemaLLMTest' \
             -Dinvoker.skip=true \
             -Dmaven.build.cache.enabled=false
