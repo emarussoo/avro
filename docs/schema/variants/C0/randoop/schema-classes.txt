@@ -1,5 +1,0 @@
-org.apache.avro.Schema
-org.apache.avro.Schema$Field
-org.apache.avro.Schema$Field$Order
-org.apache.avro.Schema$Parser
-org.apache.avro.Schema$Type
