@@ -95,3 +95,12 @@ jobs:
               -Dit.test='ISW2TimeConversionsIT' \
               -Dinvoker.skip=true \
               -Dmaven.build.cache.enabled=false
+
+
+      - name: Run ISW2 Schema stable tests
+        working-directory: lang/java
+        run: |
+          mvn -pl avro -am clean test \
+            -Dtest='ISW2SchemaBBTest,ISW2SchemaRNDTest,ISW2SchemaESTest' \
+            -Dinvoker.skip=true \
+            -Dmaven.build.cache.enabled=false
