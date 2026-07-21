@@ -1,0 +1,321 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ObjectUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Avro</a> &gt; <a href="index.source.html" class="el_package">org.apache.avro.util.springframework</a> &gt; <span class="el_source">ObjectUtils.java</span></div><h1>ObjectUtils.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 2002-2021 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.avro.util.springframework;
+
+import org.apache.avro.reflect.Nullable;
+import org.apache.avro.util.ClassUtils;
+
+import java.util.Arrays;
+
+/**
+ * Miscellaneous object utility methods.
+ *
+ * &lt;p&gt;
+ * Mainly for internal use within the framework.
+ *
+ * &lt;p&gt;
+ * Thanks to Alex Ruiz for contributing several enhancements to this class!
+ *
+ * @author Juergen Hoeller
+ * @author Keith Donald
+ * @author Rod Johnson
+ * @author Rob Harrop
+ * @author Chris Beams
+ * @author Sam Brannen
+ * @see ClassUtils see CollectionUtils see StringUtils
+ * @since 19.03.2004
+ */
+class ObjectUtils {
+  private ObjectUtils() {
+  }
+
+  private static final int INITIAL_HASH = 7;
+  private static final int MULTIPLIER = 31;
+
+  /**
+   * Determine whether the given array is empty: i.e. {@code null} or of zero
+   * length.
+   *
+   * @param array the array to check
+   */
+  public static boolean isEmpty(@Nullable Object[] array) {
+<span class="nc bnc" id="L56" title="All 4 branches missed.">    return (array == null || array.length == 0);</span>
+  }
+
+  // ---------------------------------------------------------------------
+  // Convenience methods for content-based equality/hash-code handling
+  // ---------------------------------------------------------------------
+
+  /**
+   * Determine if the given objects are equal, returning {@code true} if both are
+   * {@code null} or {@code false} if only one is {@code null}.
+   * &lt;p&gt;
+   * Compares arrays with {@code Arrays.equals}, performing an equality check
+   * based on the array elements rather than the array reference.
+   *
+   * @param o1 first Object to compare
+   * @param o2 second Object to compare
+   * @return whether the given objects are equal
+   * @see Object#equals(Object)
+   * @see Arrays#equals
+   */
+  public static boolean nullSafeEquals(@Nullable Object o1, @Nullable Object o2) {
+<span class="nc bnc" id="L77" title="All 2 branches missed.">    if (o1 == o2) {</span>
+<span class="nc" id="L78">      return true;</span>
+    }
+<span class="nc bnc" id="L80" title="All 4 branches missed.">    if (o1 == null || o2 == null) {</span>
+<span class="nc" id="L81">      return false;</span>
+    }
+<span class="nc bnc" id="L83" title="All 2 branches missed.">    if (o1.equals(o2)) {</span>
+<span class="nc" id="L84">      return true;</span>
+    }
+<span class="nc bnc" id="L86" title="All 4 branches missed.">    if (o1.getClass().isArray() &amp;&amp; o2.getClass().isArray()) {</span>
+<span class="nc" id="L87">      return arrayEquals(o1, o2);</span>
+    }
+<span class="nc" id="L89">    return false;</span>
+  }
+
+  /**
+   * Compare the given arrays with {@code Arrays.equals}, performing an equality
+   * check based on the array elements rather than the array reference.
+   *
+   * @param o1 first array to compare
+   * @param o2 second array to compare
+   * @return whether the given objects are equal
+   * @see #nullSafeEquals(Object, Object)
+   * @see Arrays#equals
+   */
+  private static boolean arrayEquals(Object o1, Object o2) {
+<span class="nc bnc" id="L103" title="All 4 branches missed.">    if (o1 instanceof Object[] &amp;&amp; o2 instanceof Object[]) {</span>
+<span class="nc" id="L104">      return Arrays.equals((Object[]) o1, (Object[]) o2);</span>
+    }
+<span class="nc bnc" id="L106" title="All 4 branches missed.">    if (o1 instanceof boolean[] &amp;&amp; o2 instanceof boolean[]) {</span>
+<span class="nc" id="L107">      return Arrays.equals((boolean[]) o1, (boolean[]) o2);</span>
+    }
+<span class="nc bnc" id="L109" title="All 4 branches missed.">    if (o1 instanceof byte[] &amp;&amp; o2 instanceof byte[]) {</span>
+<span class="nc" id="L110">      return Arrays.equals((byte[]) o1, (byte[]) o2);</span>
+    }
+<span class="nc bnc" id="L112" title="All 4 branches missed.">    if (o1 instanceof char[] &amp;&amp; o2 instanceof char[]) {</span>
+<span class="nc" id="L113">      return Arrays.equals((char[]) o1, (char[]) o2);</span>
+    }
+<span class="nc bnc" id="L115" title="All 4 branches missed.">    if (o1 instanceof double[] &amp;&amp; o2 instanceof double[]) {</span>
+<span class="nc" id="L116">      return Arrays.equals((double[]) o1, (double[]) o2);</span>
+    }
+<span class="nc bnc" id="L118" title="All 4 branches missed.">    if (o1 instanceof float[] &amp;&amp; o2 instanceof float[]) {</span>
+<span class="nc" id="L119">      return Arrays.equals((float[]) o1, (float[]) o2);</span>
+    }
+<span class="nc bnc" id="L121" title="All 4 branches missed.">    if (o1 instanceof int[] &amp;&amp; o2 instanceof int[]) {</span>
+<span class="nc" id="L122">      return Arrays.equals((int[]) o1, (int[]) o2);</span>
+    }
+<span class="nc bnc" id="L124" title="All 4 branches missed.">    if (o1 instanceof long[] &amp;&amp; o2 instanceof long[]) {</span>
+<span class="nc" id="L125">      return Arrays.equals((long[]) o1, (long[]) o2);</span>
+    }
+<span class="nc bnc" id="L127" title="All 4 branches missed.">    if (o1 instanceof short[] &amp;&amp; o2 instanceof short[]) {</span>
+<span class="nc" id="L128">      return Arrays.equals((short[]) o1, (short[]) o2);</span>
+    }
+<span class="nc" id="L130">    return false;</span>
+  }
+
+  /**
+   * Return as hash code for the given object; typically the value of
+   * {@code Object#hashCode()}}. If the object is an array, this method will
+   * delegate to any of the {@code nullSafeHashCode} methods for arrays in this
+   * class. If the object is {@code null}, this method returns 0.
+   *
+   * @see Object#hashCode()
+   * @see #nullSafeHashCode(Object[])
+   * @see #nullSafeHashCode(boolean[])
+   * @see #nullSafeHashCode(byte[])
+   * @see #nullSafeHashCode(char[])
+   * @see #nullSafeHashCode(double[])
+   * @see #nullSafeHashCode(float[])
+   * @see #nullSafeHashCode(int[])
+   * @see #nullSafeHashCode(long[])
+   * @see #nullSafeHashCode(short[])
+   */
+  public static int nullSafeHashCode(@Nullable Object obj) {
+<span class="nc bnc" id="L151" title="All 2 branches missed.">    if (obj == null) {</span>
+<span class="nc" id="L152">      return 0;</span>
+    }
+<span class="nc bnc" id="L154" title="All 2 branches missed.">    if (obj.getClass().isArray()) {</span>
+<span class="nc bnc" id="L155" title="All 2 branches missed.">      if (obj instanceof Object[]) {</span>
+<span class="nc" id="L156">        return nullSafeHashCode((Object[]) obj);</span>
+      }
+<span class="nc bnc" id="L158" title="All 2 branches missed.">      if (obj instanceof boolean[]) {</span>
+<span class="nc" id="L159">        return nullSafeHashCode((boolean[]) obj);</span>
+      }
+<span class="nc bnc" id="L161" title="All 2 branches missed.">      if (obj instanceof byte[]) {</span>
+<span class="nc" id="L162">        return nullSafeHashCode((byte[]) obj);</span>
+      }
+<span class="nc bnc" id="L164" title="All 2 branches missed.">      if (obj instanceof char[]) {</span>
+<span class="nc" id="L165">        return nullSafeHashCode((char[]) obj);</span>
+      }
+<span class="nc bnc" id="L167" title="All 2 branches missed.">      if (obj instanceof double[]) {</span>
+<span class="nc" id="L168">        return nullSafeHashCode((double[]) obj);</span>
+      }
+<span class="nc bnc" id="L170" title="All 2 branches missed.">      if (obj instanceof float[]) {</span>
+<span class="nc" id="L171">        return nullSafeHashCode((float[]) obj);</span>
+      }
+<span class="nc bnc" id="L173" title="All 2 branches missed.">      if (obj instanceof int[]) {</span>
+<span class="nc" id="L174">        return nullSafeHashCode((int[]) obj);</span>
+      }
+<span class="nc bnc" id="L176" title="All 2 branches missed.">      if (obj instanceof long[]) {</span>
+<span class="nc" id="L177">        return nullSafeHashCode((long[]) obj);</span>
+      }
+<span class="nc bnc" id="L179" title="All 2 branches missed.">      if (obj instanceof short[]) {</span>
+<span class="nc" id="L180">        return nullSafeHashCode((short[]) obj);</span>
+      }
+    }
+<span class="nc" id="L183">    return obj.hashCode();</span>
+  }
+
+  /**
+   * Return a hash code based on the contents of the specified array. If
+   * {@code array} is {@code null}, this method returns 0.
+   */
+  public static int nullSafeHashCode(@Nullable Object[] array) {
+<span class="nc bnc" id="L191" title="All 2 branches missed.">    if (array == null) {</span>
+<span class="nc" id="L192">      return 0;</span>
+    }
+<span class="nc" id="L194">    int hash = INITIAL_HASH;</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">    for (Object element : array) {</span>
+<span class="nc" id="L196">      hash = MULTIPLIER * hash + nullSafeHashCode(element);</span>
+    }
+<span class="nc" id="L198">    return hash;</span>
+  }
+
+  /**
+   * Return a hash code based on the contents of the specified array. If
+   * {@code array} is {@code null}, this method returns 0.
+   */
+  public static int nullSafeHashCode(@Nullable boolean[] array) {
+<span class="nc bnc" id="L206" title="All 2 branches missed.">    if (array == null) {</span>
+<span class="nc" id="L207">      return 0;</span>
+    }
+<span class="nc" id="L209">    int hash = INITIAL_HASH;</span>
+<span class="nc bnc" id="L210" title="All 2 branches missed.">    for (boolean element : array) {</span>
+<span class="nc" id="L211">      hash = MULTIPLIER * hash + Boolean.hashCode(element);</span>
+    }
+<span class="nc" id="L213">    return hash;</span>
+  }
+
+  /**
+   * Return a hash code based on the contents of the specified array. If
+   * {@code array} is {@code null}, this method returns 0.
+   */
+  public static int nullSafeHashCode(@Nullable byte[] array) {
+<span class="nc bnc" id="L221" title="All 2 branches missed.">    if (array == null) {</span>
+<span class="nc" id="L222">      return 0;</span>
+    }
+<span class="nc" id="L224">    int hash = INITIAL_HASH;</span>
+<span class="nc bnc" id="L225" title="All 2 branches missed.">    for (byte element : array) {</span>
+<span class="nc" id="L226">      hash = MULTIPLIER * hash + element;</span>
+    }
+<span class="nc" id="L228">    return hash;</span>
+  }
+
+  /**
+   * Return a hash code based on the contents of the specified array. If
+   * {@code array} is {@code null}, this method returns 0.
+   */
+  public static int nullSafeHashCode(@Nullable char[] array) {
+<span class="nc bnc" id="L236" title="All 2 branches missed.">    if (array == null) {</span>
+<span class="nc" id="L237">      return 0;</span>
+    }
+<span class="nc" id="L239">    int hash = INITIAL_HASH;</span>
+<span class="nc bnc" id="L240" title="All 2 branches missed.">    for (char element : array) {</span>
+<span class="nc" id="L241">      hash = MULTIPLIER * hash + element;</span>
+    }
+<span class="nc" id="L243">    return hash;</span>
+  }
+
+  /**
+   * Return a hash code based on the contents of the specified array. If
+   * {@code array} is {@code null}, this method returns 0.
+   */
+  public static int nullSafeHashCode(@Nullable double[] array) {
+<span class="nc bnc" id="L251" title="All 2 branches missed.">    if (array == null) {</span>
+<span class="nc" id="L252">      return 0;</span>
+    }
+<span class="nc" id="L254">    int hash = INITIAL_HASH;</span>
+<span class="nc bnc" id="L255" title="All 2 branches missed.">    for (double element : array) {</span>
+<span class="nc" id="L256">      hash = MULTIPLIER * hash + Double.hashCode(element);</span>
+    }
+<span class="nc" id="L258">    return hash;</span>
+  }
+
+  /**
+   * Return a hash code based on the contents of the specified array. If
+   * {@code array} is {@code null}, this method returns 0.
+   */
+  public static int nullSafeHashCode(@Nullable float[] array) {
+<span class="nc bnc" id="L266" title="All 2 branches missed.">    if (array == null) {</span>
+<span class="nc" id="L267">      return 0;</span>
+    }
+<span class="nc" id="L269">    int hash = INITIAL_HASH;</span>
+<span class="nc bnc" id="L270" title="All 2 branches missed.">    for (float element : array) {</span>
+<span class="nc" id="L271">      hash = MULTIPLIER * hash + Float.hashCode(element);</span>
+    }
+<span class="nc" id="L273">    return hash;</span>
+  }
+
+  /**
+   * Return a hash code based on the contents of the specified array. If
+   * {@code array} is {@code null}, this method returns 0.
+   */
+  public static int nullSafeHashCode(@Nullable int[] array) {
+<span class="nc bnc" id="L281" title="All 2 branches missed.">    if (array == null) {</span>
+<span class="nc" id="L282">      return 0;</span>
+    }
+<span class="nc" id="L284">    int hash = INITIAL_HASH;</span>
+<span class="nc bnc" id="L285" title="All 2 branches missed.">    for (int element : array) {</span>
+<span class="nc" id="L286">      hash = MULTIPLIER * hash + element;</span>
+    }
+<span class="nc" id="L288">    return hash;</span>
+  }
+
+  /**
+   * Return a hash code based on the contents of the specified array. If
+   * {@code array} is {@code null}, this method returns 0.
+   */
+  public static int nullSafeHashCode(@Nullable long[] array) {
+<span class="nc bnc" id="L296" title="All 2 branches missed.">    if (array == null) {</span>
+<span class="nc" id="L297">      return 0;</span>
+    }
+<span class="nc" id="L299">    int hash = INITIAL_HASH;</span>
+<span class="nc bnc" id="L300" title="All 2 branches missed.">    for (long element : array) {</span>
+<span class="nc" id="L301">      hash = MULTIPLIER * hash + Long.hashCode(element);</span>
+    }
+<span class="nc" id="L303">    return hash;</span>
+  }
+
+  /**
+   * Return a hash code based on the contents of the specified array. If
+   * {@code array} is {@code null}, this method returns 0.
+   */
+  public static int nullSafeHashCode(@Nullable short[] array) {
+<span class="nc bnc" id="L311" title="All 2 branches missed.">    if (array == null) {</span>
+<span class="nc" id="L312">      return 0;</span>
+    }
+<span class="nc" id="L314">    int hash = INITIAL_HASH;</span>
+<span class="nc bnc" id="L315" title="All 2 branches missed.">    for (short element : array) {</span>
+<span class="nc" id="L316">      hash = MULTIPLIER * hash + element;</span>
+    }
+<span class="nc" id="L318">    return hash;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
