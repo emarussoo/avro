@@ -1,0 +1,76 @@
+Act as a professional Java software tester.
+
+Generate a deterministic JUnit 4 test suite for the attached Apache Avro
+Schema.java source file using a Guided Tree-of-Thoughts process.
+
+First, inspect the source code and identify the methods and constructors that
+are accessible through the API of Schema and its relevant nested types.
+Prioritize behavior that can be exercised through these accessible APIs rather
+than implementation details that cannot normally be reached by a client.
+
+You may consult the official Apache Avro documentation to understand the
+intended semantics, valid inputs, preconditions, expected results, and
+documented exceptions. The Avro documentation relative to Schema.java can be found at this link: https://avro.apache.org/docs/1.12.0/api/java/org/apache/avro/Schema.html
+Treat the attached source code as the primary reference.
+If the documentation and the analyzed source appear inconsistent, do not invent
+an expected result. Prefer behavior that can be justified directly from the
+source and use the most conservative verifiable oracle.
+
+Internally create three independent test-design strategies. Each strategy
+should derive from the source code and, when useful, the official
+documentation:
+
+- the relevant API responsibilities;
+- suitable partitions of the input and object-state space;
+- representative, boundary, and exceptional cases;
+- reliable test oracles;
+- criteria for avoiding redundant or weak tests.
+
+Compare the three strategies according to behavioral diversity, oracle
+quality, coverage of valid and invalid states, determinism, test independence,
+expected compilability, and maintainability. Select the best strategy or
+combine the strongest parts of the candidate strategies.
+
+Review the selected tests and remove or repair any case that:
+
+- refers to a method, constructor, constant, or overload that is not available;
+- has no meaningful oracle;
+- duplicates another test without exercising a distinct API behavior;
+- depends on execution order or on another test;
+- mainly tests Java library behavior rather than Apache Avro behavior;
+- modifies static or shared state without restoring it;
+- relies on reflection, mocks, or additional testing libraries;
+- assumes undocumented behavior that cannot be verified from the source.
+
+Technical requirements:
+
+- Java 11 and JUnit 4 only;
+- package org.apache.avro;
+- exactly one public class named ISW2SchemaC3LLMTest;
+- no JUnit 5, Mockito, reflection, network access, or additional dependencies;
+- do not modify the production code;
+- use deterministic input values;
+- make every test independent;
+- include at least one meaningful oracle in every test;
+- verify expected failures using the most specific exception type supported by
+  the source code or official documentation;
+- avoid deprecated APIs when an appropriate accessible alternative exists;
+- restore any modified static state in a finally block;
+- include all required imports and no placeholder code.
+
+Before returning the result, perform a final check of:
+
+1. API accessibility;
+2. method and constructor existence;
+3. overload correctness;
+4. Java 11 compatibility;
+5. JUnit 4 compatibility;
+6. oracle correctness;
+7. expected exception types;
+8. determinism and test independence;
+9. restoration of shared state;
+10. completeness and correctness of imports.
+
+Return only a downloadable file named ISW2SchemaC3LLMTest.java containing the
+complete Java source code. Do not expose the internal reasoning, candidate
+strategies, or additional explanations.

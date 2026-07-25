@@ -1,0 +1,43 @@
+* EvoSuite 1.2.0
+* Going to generate test cases for class: org.apache.avro.Schema$SeenPair
+* Starting Client-0
+* Connecting to master process on port 17345
+* Analyzing classpath: 
+  - target/classes
+  - /Users/lele/.m2/repository/com/fasterxml/jackson/core/jackson-core/2.14.3/jackson-core-2.14.3.jar
+  - /Users/lele/.m2/repository/com/fasterxml/jackson/core/jackson-databind/2.14.3/jackson-databind-2.14.3.jar
+  - /Users/lele/.m2/repository/com/fasterxml/jackson/core/jackson-annotations/2.14.3/jackson-annotations-2.14.3.jar
+  - /Users/lele/.m2/repository/org/slf4j/slf4j-api/2.0.18/slf4j-api-2.0.18.jar
+* Finished analyzing classpath
+* Generating tests for class org.apache.avro.Schema$SeenPair
+* Test criterion:
+  - Branch Coverage
+[Progress:>                             0%] [Cov:>                                  0%]* Total number of test goals for DYNAMOSA: 8
+* Using seed 12345
+* Starting evolution
+* Initial Number of Goals in DynaMOSA = 4 / 8
+[Progress:>                             0%] [Cov:===================================100%]
+* Search finished after 0s and 0 generations, 1025 statements, best individual has fitness: 0.0
+* Minimizing test suite
+* Going to analyze the coverage criteria
+* Coverage analysis for criterion BRANCH
+* Coverage of criterion BRANCH: 100%
+* Total number of goals: 8
+* Number of covered goals: 8
+* Generated 5 tests with total length 18
+* Resulting test suite's coverage: 100%
+* Generating assertions
+* Resulting test suite's mutation score: 58%
+* Compiling and checking tests
+[MASTER] 16:33:44.902 [logback-1] WARN  JUnitAnalyzer - EvoSuite problem: tests set up a security manager, but they do not remove it after execution
+[MASTER] 16:33:45.156 [logback-1] WARN  JUnitAnalyzer - EvoSuite problem: tests set up a security manager, but they do not remove it after execution
+[MASTER] 16:33:45.381 [logback-1] WARN  JUnitAnalyzer - EvoSuite problem: tests set up a security manager, but they do not remove it after execution
+[MASTER] 16:33:45.592 [logback-1] WARN  JUnitAnalyzer - EvoSuite problem: tests set up a security manager, but they do not remove it after execution
+[MASTER] 16:33:45.779 [logback-1] WARN  JUnitAnalyzer - EvoSuite problem: tests set up a security manager, but they do not remove it after execution
+[MASTER] 16:33:45.968 [logback-1] WARN  JUnitAnalyzer - EvoSuite problem: tests set up a security manager, but they do not remove it after execution
+[MASTER] 16:33:46.158 [logback-1] WARN  JUnitAnalyzer - EvoSuite problem: tests set up a security manager, but they do not remove it after execution
+* Writing tests to file
+* Writing JUnit test case 'Schema$SeenPair_ESTest' to target/evosuite/C1/tests
+* Done!
+
+* Computation finished

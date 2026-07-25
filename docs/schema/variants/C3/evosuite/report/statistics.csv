@@ -1,0 +1,6 @@
+TARGET_CLASS,criterion,Coverage,Total_Goals,Covered_Goals
+org.apache.avro.Schema,BRANCH,0.6725067385444744,742,464
+org.apache.avro.Schema$Type,BRANCH,1.0,1,1
+org.apache.avro.Schema$Field,BRANCH,0.9019607843137255,51,46
+org.apache.avro.Schema$Parser,BRANCH,0.7083333333333334,24,17
+org.apache.avro.Schema$SeenPair,BRANCH,1.0,8,8
