@@ -123,6 +123,15 @@ public abstract class Schema extends JsonProperties implements Serializable {
 
   private static final int NO_HASHCODE = Integer.MIN_VALUE;
 
+  private static final String ALIASES_PROP = "aliases";
+  private static final String DEFAULT_PROP = "default";
+  private static final String FIELDS_PROP = "fields";
+  private static final String ITEMS_PROP = "items";
+  private static final String NAMESPACE_PROP = "namespace";
+  private static final String ORDER_PROP = "order";
+  private static final String SYMBOLS_PROP = "symbols";
+  private static final String VALUES_PROP = "values";
+
   static {
     FACTORY.enable(JsonParser.Feature.ALLOW_COMMENTS);
     FACTORY.setCodec(MAPPER);
@@ -176,11 +185,11 @@ public abstract class Schema extends JsonProperties implements Serializable {
   }
 
   private static final Set<String> SCHEMA_RESERVED = new HashSet<>(
-      Arrays.asList("doc", "fields", "items", "name", "namespace", "size", "symbols", "values", "type", "aliases"));
+      Arrays.asList("doc", FIELDS_PROP, ITEMS_PROP, "name", NAMESPACE_PROP, "size", SYMBOLS_PROP, VALUES_PROP, "type", ALIASES_PROP));
 
   private static final Set<String> ENUM_RESERVED = new HashSet<>(SCHEMA_RESERVED);
   static {
-    ENUM_RESERVED.add("default");
+    ENUM_RESERVED.add(DEFAULT_PROP);
   }
 
   int hashCode = NO_HASHCODE;
@@ -483,7 +492,7 @@ public abstract class Schema extends JsonProperties implements Serializable {
     if (!(o instanceof Schema))
       return false;
     Schema that = (Schema) o;
-    if (!(this.type == that.type))
+    if (this.type != that.type)
       return false;
     return equalCachedHash(that) && propsEqual(that);
   }
@@ -504,7 +513,7 @@ public abstract class Schema extends JsonProperties implements Serializable {
   }
 
   private static final Set<String> FIELD_RESERVED = Collections
-      .unmodifiableSet(new HashSet<>(Arrays.asList("default", "doc", "name", "order", "type", "aliases")));
+      .unmodifiableSet(new HashSet<>(Arrays.asList(DEFAULT_PROP, "doc", "name", ORDER_PROP, "type", ALIASES_PROP)));
 
   /** Returns true if this record is a union type. */
   public boolean isUnion() {
@@ -767,9 +776,9 @@ public abstract class Schema extends JsonProperties implements Serializable {
         gen.writeStringField("name", name);
       if (space != null) {
         if (!space.equals(currentNamespace))
-          gen.writeStringField("namespace", space);
+          gen.writeStringField(NAMESPACE_PROP, space);
       } else if (currentNamespace != null) { // null within non-null
-        gen.writeStringField("namespace", "");
+        gen.writeStringField(NAMESPACE_PROP, "");
       }
     }
 
@@ -863,11 +872,9 @@ public abstract class Schema extends JsonProperties implements Serializable {
     }
 
     public boolean writeNameRef(Set<String> knownNames, String currentNamespace, JsonGenerator gen) throws IOException {
-      if (name.name != null) {
-        if (!knownNames.add(name.full)) {
-          gen.writeString(name.getQualified(currentNamespace));
-          return true;
-        }
+      if (name.name != null && !knownNames.add(name.full)) {
+        gen.writeString(name.getQualified(currentNamespace));
+        return true;
       }
       return false;
     }
@@ -888,7 +895,7 @@ public abstract class Schema extends JsonProperties implements Serializable {
     public void aliasesToJson(JsonGenerator gen) throws IOException {
       if (aliases == null || aliases.isEmpty())
         return;
-      gen.writeFieldName("aliases");
+      gen.writeFieldName(ALIASES_PROP);
       gen.writeStartArray();
       for (Name alias : aliases)
         gen.writeString(alias.getQualified(name.space));
@@ -1044,7 +1051,7 @@ public abstract class Schema extends JsonProperties implements Serializable {
       }
 
       if (fields != null) {
-        gen.writeFieldName("fields");
+        gen.writeFieldName(FIELDS_PROP);
         fieldsToJson(knownNames, name.space, gen);
       }
 
@@ -1065,13 +1072,13 @@ public abstract class Schema extends JsonProperties implements Serializable {
         if (f.doc() != null)
           gen.writeStringField("doc", f.doc());
         if (f.hasDefaultValue()) {
-          gen.writeFieldName("default");
+          gen.writeFieldName(DEFAULT_PROP);
           gen.writeTree(f.defaultValue());
         }
         if (f.order() != Field.Order.ASCENDING)
-          gen.writeStringField("order", f.order().name);
+          gen.writeStringField(ORDER_PROP, f.order().name);
         if (f.aliases != null && !f.aliases.isEmpty()) {
-          gen.writeFieldName("aliases");
+          gen.writeFieldName(ALIASES_PROP);
           gen.writeStartArray();
           for (String alias : f.aliases)
             gen.writeString(alias);
@@ -1156,12 +1163,12 @@ public abstract class Schema extends JsonProperties implements Serializable {
       writeName(currentNamespace, gen);
       if (getDoc() != null)
         gen.writeStringField("doc", getDoc());
-      gen.writeArrayFieldStart("symbols");
+      gen.writeArrayFieldStart(SYMBOLS_PROP);
       for (String symbol : symbols)
         gen.writeString(symbol);
       gen.writeEndArray();
       if (getEnumDefault() != null)
-        gen.writeStringField("default", getEnumDefault());
+        gen.writeStringField(DEFAULT_PROP, getEnumDefault());
       writeProps(gen);
       aliasesToJson(gen);
       gen.writeEndObject();
@@ -1201,7 +1208,7 @@ public abstract class Schema extends JsonProperties implements Serializable {
     void toJson(Set<String> knownNames, String namespace, JsonGenerator gen) throws IOException {
       gen.writeStartObject();
       gen.writeStringField("type", "array");
-      gen.writeFieldName("items");
+      gen.writeFieldName(ITEMS_PROP);
       elementType.toJson(knownNames, namespace, gen);
       writeProps(gen);
       gen.writeEndObject();
@@ -1241,7 +1248,7 @@ public abstract class Schema extends JsonProperties implements Serializable {
     void toJson(Set<String> knownNames, String currentNamespace, JsonGenerator gen) throws IOException {
       gen.writeStartObject();
       gen.writeStringField("type", "map");
-      gen.writeFieldName("values");
+      gen.writeFieldName(VALUES_PROP);
       valueType.toJson(knownNames, currentNamespace, gen);
       writeProps(gen);
       gen.writeEndObject();
@@ -1868,7 +1875,7 @@ public abstract class Schema extends JsonProperties implements Serializable {
     String doc = parseDoc(schema);
     Schema result = new RecordSchema(name, doc, isTypeError);
 
-    JsonNode fieldsNode = schema.get("fields");
+    JsonNode fieldsNode = schema.get(FIELDS_PROP);
     if (fieldsNode == null || !fieldsNode.isArray())
       throw new SchemaParseException("Record has no fields: " + schema);
     List<Field> fields = new ArrayList<>();
@@ -1896,11 +1903,11 @@ public abstract class Schema extends JsonProperties implements Serializable {
     Schema fieldSchema = parse(fieldTypeNode, context, namespace);
 
     Field.Order order = Field.Order.ASCENDING;
-    JsonNode orderNode = field.get("order");
+    JsonNode orderNode = field.get(ORDER_PROP);
     if (orderNode != null)
       order = Field.Order.valueOf(orderNode.textValue().toUpperCase(Locale.ENGLISH));
 
-    JsonNode defaultValue = field.get("default");
+    JsonNode defaultValue = field.get(DEFAULT_PROP);
     if (defaultValue != null && (Type.FLOAT.equals(fieldSchema.getType()) || Type.DOUBLE.equals(fieldSchema.getType()))
         && defaultValue.isTextual())
       defaultValue = new DoubleNode(Double.parseDouble(defaultValue.textValue()));
@@ -1915,14 +1922,14 @@ public abstract class Schema extends JsonProperties implements Serializable {
     Name name = parseName(schema, currentNameSpace);
     String doc = parseDoc(schema);
 
-    JsonNode symbolsNode = schema.get("symbols");
+    JsonNode symbolsNode = schema.get(SYMBOLS_PROP);
     if (symbolsNode == null || !symbolsNode.isArray()) {
       throw new SchemaParseException("Enum has no symbols: " + schema);
     }
     LockableArrayList<String> symbols = new LockableArrayList<>(symbolsNode.size());
     for (JsonNode n : symbolsNode)
       symbols.add(n.textValue());
-    JsonNode enumDefault = schema.get("default");
+    JsonNode enumDefault = schema.get(DEFAULT_PROP);
     String defaultSymbol = null;
     if (enumDefault != null) {
       defaultSymbol = enumDefault.textValue();
@@ -1937,7 +1944,7 @@ public abstract class Schema extends JsonProperties implements Serializable {
 
   private static Schema parseArray(JsonNode schema, ParseContext context, String currentNameSpace) {
     Schema result;
-    JsonNode itemsNode = schema.get("items");
+    JsonNode itemsNode = schema.get(ITEMS_PROP);
     if (itemsNode == null)
       throw new SchemaParseException("Array has no items type: " + schema);
     result = new ArraySchema(parse(itemsNode, context, currentNameSpace));
@@ -1947,7 +1954,7 @@ public abstract class Schema extends JsonProperties implements Serializable {
 
   private static Schema parseMap(JsonNode schema, ParseContext context, String currentNameSpace) {
     Schema result;
-    JsonNode valuesNode = schema.get("values");
+    JsonNode valuesNode = schema.get(VALUES_PROP);
     if (valuesNode == null)
       throw new SchemaParseException("Map has no values type: " + schema);
     result = new MapSchema(parse(valuesNode, context, currentNameSpace));
@@ -1991,7 +1998,7 @@ public abstract class Schema extends JsonProperties implements Serializable {
   }
 
   private static Name parseName(JsonNode schema, String currentNameSpace) {
-    String space = getOptionalText(schema, "namespace");
+    String space = getOptionalText(schema, NAMESPACE_PROP);
     if (space == null)
       space = currentNameSpace;
     return new Name(getRequiredText(schema, "name", "No name in schema"), space);
@@ -2009,7 +2016,7 @@ public abstract class Schema extends JsonProperties implements Serializable {
   }
 
   static Set<String> parseAliases(JsonNode node) {
-    JsonNode aliasesNode = node.get("aliases");
+    JsonNode aliasesNode = node.get(ALIASES_PROP);
     if (aliasesNode == null)
       return null;
     if (!aliasesNode.isArray())
@@ -2154,18 +2161,18 @@ public abstract class Schema extends JsonProperties implements Serializable {
       if (seen.containsKey(schema))
         return; // break loops
       seen.put(schema, schema);
-      RecordSchema record = (RecordSchema) schema;
+      RecordSchema recordSchema = (RecordSchema) schema;
       for (Field field : schema.getFields()) {
         if (field.aliases != null)
           for (String fieldAlias : field.aliases) {
-            Map<String, String> recordAliases = fieldAliases.computeIfAbsent(record.name, k -> new HashMap<>());
+            Map<String, String> recordAliases = fieldAliases.computeIfAbsent(recordSchema.name, k -> new HashMap<>());
             recordAliases.put(fieldAlias, field.name);
           }
         getAliases(field.schema, seen, aliases, fieldAliases);
       }
-      if (record.aliases != null && fieldAliases.containsKey(record.name))
-        for (Name recordAlias : record.aliases)
-          fieldAliases.put(recordAlias, fieldAliases.get(record.name));
+      if (recordSchema.aliases != null && fieldAliases.containsKey(recordSchema.name))
+        for (Name recordAlias : recordSchema.aliases)
+          fieldAliases.put(recordAlias, fieldAliases.get(recordSchema.name));
       break;
     case ARRAY:
       getAliases(schema.getElementType(), seen, aliases, fieldAliases);
