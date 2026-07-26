@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JacksonUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Avro</a> &gt; <a href="index.source.html" class="el_package">org.apache.avro.util.internal</a> &gt; <span class="el_source">JacksonUtils.java</span></div><h1>JacksonUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.avro.util.internal;
+
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
+import org.apache.avro.AvroRuntimeException;
+import org.apache.avro.JsonProperties;
+import org.apache.avro.Schema;
+
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.util.TokenBuffer;
+
+public class JacksonUtils {
+  /**
+   * Object Mapper used for toJsonNode method.
+   */
+<span class="fc" id="L46">  private static final ObjectMapper MAPPER = new ObjectMapper();</span>
+
+  /**
+   * This object mapper uses a special variant that has different visibility
+   * rules, used in objectToMap method.
+   */
+<span class="fc" id="L52">  private static final ObjectMapper OBJECT_TO_MAP_MAPPER = MAPPER.copy()</span>
+<span class="fc" id="L53">      .setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE)</span>
+<span class="fc" id="L54">      .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);</span>
+
+  private JacksonUtils() {
+  }
+
+  public static JsonNode toJsonNode(Object datum) {
+<span class="pc bpc" id="L60" title="1 of 2 branches missed.">    if (datum == null) {</span>
+<span class="nc" id="L61">      return null;</span>
+    }
+    try {
+<span class="fc" id="L64">      TokenBuffer generator = new TokenBuffer(MAPPER, false);</span>
+<span class="fc" id="L65">      toJson(datum, generator);</span>
+<span class="fc" id="L66">      return MAPPER.readTree(generator.asParser());</span>
+<span class="nc" id="L67">    } catch (IOException e) {</span>
+<span class="nc" id="L68">      throw new AvroRuntimeException(e);</span>
+    }
+  }
+
+  @SuppressWarnings(value = &quot;unchecked&quot;)
+  static void toJson(Object datum, JsonGenerator generator) throws IOException {
+<span class="pc bpc" id="L74" title="1 of 2 branches missed.">    if (datum == JsonProperties.NULL_VALUE) { // null</span>
+<span class="nc" id="L75">      generator.writeNull();</span>
+<span class="fc bfc" id="L76" title="All 2 branches covered.">    } else if (datum instanceof Map) { // record, map</span>
+<span class="fc" id="L77">      generator.writeStartObject();</span>
+<span class="pc bpc" id="L78" title="1 of 2 branches missed.">      for (Map.Entry&lt;Object, Object&gt; entry : ((Map&lt;Object, Object&gt;) datum).entrySet()) {</span>
+<span class="nc" id="L79">        generator.writeFieldName(entry.getKey().toString());</span>
+<span class="nc" id="L80">        toJson(entry.getValue(), generator);</span>
+<span class="nc" id="L81">      }</span>
+<span class="fc" id="L82">      generator.writeEndObject();</span>
+<span class="fc bfc" id="L83" title="All 2 branches covered.">    } else if (datum instanceof Collection) { // array</span>
+<span class="fc" id="L84">      generator.writeStartArray();</span>
+<span class="pc bpc" id="L85" title="1 of 2 branches missed.">      for (Object element : (Collection&lt;?&gt;) datum) {</span>
+<span class="nc" id="L86">        toJson(element, generator);</span>
+<span class="nc" id="L87">      }</span>
+<span class="fc" id="L88">      generator.writeEndArray();</span>
+<span class="pc bpc" id="L89" title="1 of 2 branches missed.">    } else if (datum instanceof byte[]) { // bytes, fixed</span>
+<span class="nc" id="L90">      generator.writeString(new String((byte[]) datum, StandardCharsets.ISO_8859_1));</span>
+<span class="pc bpc" id="L91" title="1 of 4 branches missed.">    } else if (datum instanceof CharSequence || datum instanceof Enum&lt;?&gt;) { // string, enum</span>
+<span class="fc" id="L92">      generator.writeString(datum.toString());</span>
+<span class="nc bnc" id="L93" title="All 2 branches missed.">    } else if (datum instanceof Double) { // double</span>
+<span class="nc" id="L94">      generator.writeNumber((Double) datum);</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">    } else if (datum instanceof Float) { // float</span>
+<span class="nc" id="L96">      generator.writeNumber((Float) datum);</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">    } else if (datum instanceof Long) { // long</span>
+<span class="nc" id="L98">      generator.writeNumber((Long) datum);</span>
+<span class="nc bnc" id="L99" title="All 2 branches missed.">    } else if (datum instanceof Integer) { // int</span>
+<span class="nc" id="L100">      generator.writeNumber((Integer) datum);</span>
+<span class="nc bnc" id="L101" title="All 2 branches missed.">    } else if (datum instanceof Boolean) { // boolean</span>
+<span class="nc" id="L102">      generator.writeBoolean((Boolean) datum);</span>
+<span class="nc bnc" id="L103" title="All 2 branches missed.">    } else if (datum instanceof BigInteger) {</span>
+<span class="nc" id="L104">      generator.writeNumber((BigInteger) datum);</span>
+<span class="nc bnc" id="L105" title="All 2 branches missed.">    } else if (datum instanceof BigDecimal) {</span>
+<span class="nc" id="L106">      generator.writeNumber((BigDecimal) datum);</span>
+    } else {
+<span class="nc" id="L108">      throw new AvroRuntimeException(&quot;Unknown datum class: &quot; + datum.getClass());</span>
+    }
+<span class="fc" id="L110">  }</span>
+
+  public static Object toObject(JsonNode jsonNode) {
+<span class="nc" id="L113">    return toObject(jsonNode, null);</span>
+  }
+
+  public static Object toObject(JsonNode jsonNode, Schema schema) {
+<span class="fc bfc" id="L117" title="All 2 branches covered.">    if (jsonNode == null) {</span>
+<span class="fc" id="L118">      return null;</span>
+<span class="pc bpc" id="L119" title="1 of 2 branches missed.">    } else if (jsonNode.isNull()) {</span>
+<span class="nc" id="L120">      return JsonProperties.NULL_VALUE;</span>
+    }
+
+<span class="pc bpc" id="L123" title="1 of 4 branches missed.">    if (schema != null &amp;&amp; schema.getType().equals(Schema.Type.UNION)) {</span>
+<span class="pc bpc" id="L124" title="1 of 2 branches missed.">      for (Schema unionType : schema.getTypes()) {</span>
+<span class="pc bpc" id="L125" title="1 of 2 branches missed.">        if (unionType.getType().equals(Schema.Type.NULL)) {</span>
+<span class="nc" id="L126">          continue;</span>
+        }
+<span class="fc" id="L128">        Object unionObject = toObject(jsonNode, unionType);</span>
+<span class="pc bpc" id="L129" title="1 of 2 branches missed.">        if (unionObject != null) {</span>
+<span class="fc" id="L130">          return unionObject;</span>
+        }
+<span class="nc" id="L132">      }</span>
+<span class="nc" id="L133">      return null;</span>
+    }
+
+<span class="pc bpc" id="L136" title="1 of 2 branches missed.">    if (jsonNode.isBoolean()) {</span>
+<span class="nc" id="L137">      return jsonNode.asBoolean();</span>
+<span class="pc bpc" id="L138" title="1 of 2 branches missed.">    } else if (jsonNode.isInt()) {</span>
+<span class="nc bnc" id="L139" title="All 4 branches missed.">      if (schema == null || schema.getType().equals(Schema.Type.INT)) {</span>
+<span class="nc" id="L140">        return jsonNode.asInt();</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">      } else if (schema.getType().equals(Schema.Type.LONG)) {</span>
+<span class="nc" id="L142">        return jsonNode.asLong();</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">      } else if (schema.getType().equals(Schema.Type.FLOAT)) {</span>
+<span class="nc" id="L144">        return (float) jsonNode.asDouble();</span>
+<span class="nc bnc" id="L145" title="All 2 branches missed.">      } else if (schema.getType().equals(Schema.Type.DOUBLE)) {</span>
+<span class="nc" id="L146">        return jsonNode.asDouble();</span>
+      }
+<span class="pc bpc" id="L148" title="1 of 2 branches missed.">    } else if (jsonNode.isLong()) {</span>
+<span class="nc bnc" id="L149" title="All 4 branches missed.">      if (schema == null || schema.getType().equals(Schema.Type.LONG)) {</span>
+<span class="nc" id="L150">        return jsonNode.asLong();</span>
+<span class="nc bnc" id="L151" title="All 2 branches missed.">      } else if (schema.getType().equals(Schema.Type.INT)) {</span>
+<span class="nc bnc" id="L152" title="All 2 branches missed.">        if (jsonNode.canConvertToInt()) {</span>
+<span class="nc" id="L153">          return jsonNode.asInt();</span>
+        } else {
+<span class="nc" id="L155">          return jsonNode.asLong();</span>
+        }
+<span class="nc bnc" id="L157" title="All 2 branches missed.">      } else if (schema.getType().equals(Schema.Type.FLOAT)) {</span>
+<span class="nc" id="L158">        return (float) jsonNode.asDouble();</span>
+<span class="nc bnc" id="L159" title="All 2 branches missed.">      } else if (schema.getType().equals(Schema.Type.DOUBLE)) {</span>
+<span class="nc" id="L160">        return jsonNode.asDouble();</span>
+      }
+<span class="pc bpc" id="L162" title="2 of 4 branches missed.">    } else if (jsonNode.isDouble() || jsonNode.isFloat()) {</span>
+<span class="nc bnc" id="L163" title="All 4 branches missed.">      if (schema == null || schema.getType().equals(Schema.Type.DOUBLE)) {</span>
+<span class="nc" id="L164">        return jsonNode.asDouble();</span>
+<span class="nc bnc" id="L165" title="All 2 branches missed.">      } else if (schema.getType().equals(Schema.Type.FLOAT)) {</span>
+<span class="nc" id="L166">        return (float) jsonNode.asDouble();</span>
+      }
+<span class="pc bpc" id="L168" title="1 of 2 branches missed.">    } else if (jsonNode.isTextual()) {</span>
+<span class="pc bpc" id="L169" title="4 of 6 branches missed.">      if (schema == null || schema.getType().equals(Schema.Type.STRING) || schema.getType().equals(Schema.Type.ENUM)) {</span>
+<span class="fc" id="L170">        return jsonNode.asText();</span>
+<span class="nc bnc" id="L171" title="All 4 branches missed.">      } else if (schema.getType().equals(Schema.Type.BYTES) || schema.getType().equals(Schema.Type.FIXED)) {</span>
+<span class="nc" id="L172">        return jsonNode.textValue().getBytes(StandardCharsets.ISO_8859_1);</span>
+      }
+<span class="nc bnc" id="L174" title="All 2 branches missed.">    } else if (jsonNode.isArray()) {</span>
+<span class="nc" id="L175">      List&lt;Object&gt; l = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L176" title="All 2 branches missed.">      for (JsonNode node : jsonNode) {</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">        l.add(toObject(node, schema == null ? null : schema.getElementType()));</span>
+<span class="nc" id="L178">      }</span>
+<span class="nc" id="L179">      return l;</span>
+<span class="nc bnc" id="L180" title="All 2 branches missed.">    } else if (jsonNode.isObject()) {</span>
+<span class="nc" id="L181">      Map&lt;Object, Object&gt; m = new LinkedHashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L182" title="All 2 branches missed.">      for (Iterator&lt;String&gt; it = jsonNode.fieldNames(); it.hasNext();) {</span>
+<span class="nc" id="L183">        String key = it.next();</span>
+        final Schema s;
+<span class="nc bnc" id="L185" title="All 4 branches missed.">        if (schema != null &amp;&amp; schema.getType().equals(Schema.Type.MAP)) {</span>
+<span class="nc" id="L186">          s = schema.getValueType();</span>
+<span class="nc bnc" id="L187" title="All 4 branches missed.">        } else if (schema != null &amp;&amp; schema.getType().equals(Schema.Type.RECORD)) {</span>
+<span class="nc" id="L188">          s = schema.getField(key).schema();</span>
+        } else {
+<span class="nc" id="L190">          s = null;</span>
+        }
+<span class="nc" id="L192">        Object value = toObject(jsonNode.get(key), s);</span>
+<span class="nc" id="L193">        m.put(key, value);</span>
+<span class="nc" id="L194">      }</span>
+<span class="nc" id="L195">      return m;</span>
+    }
+<span class="nc" id="L197">    return null;</span>
+  }
+
+  /**
+   * Convert an object into a map
+   *
+   * @param datum The object
+   * @return Its Map representation
+   */
+  public static Map objectToMap(Object datum) {
+<span class="nc" id="L207">    return OBJECT_TO_MAP_MAPPER.convertValue(datum, Map.class);</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

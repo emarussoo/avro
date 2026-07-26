@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BinaryEncoder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Avro</a> &gt; <a href="index.source.html" class="el_package">org.apache.avro.io</a> &gt; <span class="el_source">BinaryEncoder.java</span></div><h1>BinaryEncoder.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.avro.io;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+
+import org.apache.avro.util.Utf8;
+
+/**
+ * An abstract {@link Encoder} for Avro's binary encoding.
+ * &lt;p/&gt;
+ * To construct and configure instances, use {@link EncoderFactory}
+ *
+ * @see EncoderFactory
+ * @see BufferedBinaryEncoder
+ * @see DirectBinaryEncoder
+ * @see BlockingBinaryEncoder
+ * @see Encoder
+ * @see Decoder
+ */
+<span class="nc" id="L38">public abstract class BinaryEncoder extends Encoder {</span>
+
+  /*
+   * Buffer used for writing ASCII strings. A string is encoded as a long followed
+   * by that many bytes of character data. A string of length 63 is the upper
+   * limit for a 1 byte variable-length long value.
+   */
+<span class="nc" id="L45">  private final byte[] stringBuffer = new byte[63];</span>
+
+  @Override
+  public void writeNull() throws IOException {
+<span class="nc" id="L49">  }</span>
+
+  @Override
+  public void writeString(Utf8 utf8) throws IOException {
+<span class="nc" id="L53">    this.writeBytes(utf8.getBytes(), 0, utf8.getByteLength());</span>
+<span class="nc" id="L54">  }</span>
+
+  @Override
+  public void writeString(String string) throws IOException {
+    /* empty string short-circuit */
+<span class="nc bnc" id="L59" title="All 2 branches missed.">    if (string.isEmpty()) {</span>
+<span class="nc" id="L60">      writeZero();</span>
+<span class="nc" id="L61">      return;</span>
+    }
+
+    /*
+     * Assume the String is ASCII. If the ASCII String fits into the existing
+     * buffer, copy the characters into the buffer and write it to the underlying
+     * Encoder. If the String is too long, or ends up not being ASCII, then
+     * fall-back to the default JDK mechanism for handling String to byte array.
+     */
+<span class="nc" id="L70">    final int stringLength = string.length();</span>
+<span class="nc bnc" id="L71" title="All 2 branches missed.">    if (stringLength &lt;= stringBuffer.length) {</span>
+<span class="nc" id="L72">      boolean onlyAscii = true;</span>
+<span class="nc bnc" id="L73" title="All 4 branches missed.">      for (int i = 0; onlyAscii &amp;&amp; (i &lt; stringLength); i++) {</span>
+        /*
+         * The char data type is a single 16-bit Unicode character (UTF-16). ASCII, is a
+         * 7-bit character encoding. Therefore, if the value is larger than 127, it
+         * cannot be ASCII. If it is ASCII, it is safe to trim to byte.
+         */
+<span class="nc" id="L79">        final char c = string.charAt(i);</span>
+<span class="nc bnc" id="L80" title="All 2 branches missed.">        if (c &gt;= 0x80) {</span>
+<span class="nc" id="L81">          onlyAscii = false;</span>
+        } else {
+<span class="nc" id="L83">          stringBuffer[i] = (byte) c;</span>
+        }
+      }
+<span class="nc bnc" id="L86" title="All 2 branches missed.">      if (onlyAscii) {</span>
+<span class="nc" id="L87">        writeInt(stringLength);</span>
+<span class="nc" id="L88">        writeFixed(stringBuffer, 0, stringLength);</span>
+<span class="nc" id="L89">        return;</span>
+      }
+    }
+
+    /*
+     * The standard JDK way of turning Strings into byte arrays. Handles UTF-16
+     * case. However, for ASCII this has the overhead of instantiating a new byte
+     * array (which pollutes the heap), and then copying the underlying bytes into
+     * the array,
+     */
+<span class="nc" id="L99">    byte[] bytes = string.getBytes(StandardCharsets.UTF_8);</span>
+<span class="nc" id="L100">    writeInt(bytes.length);</span>
+<span class="nc" id="L101">    writeFixed(bytes, 0, bytes.length);</span>
+<span class="nc" id="L102">  }</span>
+
+  @Override
+  public void writeBytes(ByteBuffer bytes) throws IOException {
+<span class="nc" id="L106">    int len = bytes.limit() - bytes.position();</span>
+<span class="nc bnc" id="L107" title="All 2 branches missed.">    if (0 == len) {</span>
+<span class="nc" id="L108">      writeZero();</span>
+    } else {
+<span class="nc" id="L110">      writeInt(len);</span>
+<span class="nc" id="L111">      writeFixed(bytes);</span>
+    }
+<span class="nc" id="L113">  }</span>
+
+  @Override
+  public void writeBytes(byte[] bytes, int start, int len) throws IOException {
+<span class="nc bnc" id="L117" title="All 2 branches missed.">    if (0 == len) {</span>
+<span class="nc" id="L118">      writeZero();</span>
+<span class="nc" id="L119">      return;</span>
+    }
+<span class="nc" id="L121">    this.writeInt(len);</span>
+<span class="nc" id="L122">    this.writeFixed(bytes, start, len);</span>
+<span class="nc" id="L123">  }</span>
+
+  @Override
+  public void writeEnum(int e) throws IOException {
+<span class="nc" id="L127">    this.writeInt(e);</span>
+<span class="nc" id="L128">  }</span>
+
+  @Override
+  public void writeArrayStart() throws IOException {
+<span class="nc" id="L132">  }</span>
+
+  @Override
+  public void setItemCount(long itemCount) throws IOException {
+<span class="nc bnc" id="L136" title="All 2 branches missed.">    if (itemCount &gt; 0) {</span>
+<span class="nc" id="L137">      this.writeLong(itemCount);</span>
+    }
+<span class="nc" id="L139">  }</span>
+
+  @Override
+  public void startItem() throws IOException {
+<span class="nc" id="L143">  }</span>
+
+  @Override
+  public void writeArrayEnd() throws IOException {
+<span class="nc" id="L147">    writeZero();</span>
+<span class="nc" id="L148">  }</span>
+
+  @Override
+  public void writeMapStart() throws IOException {
+<span class="nc" id="L152">  }</span>
+
+  @Override
+  public void writeMapEnd() throws IOException {
+<span class="nc" id="L156">    writeZero();</span>
+<span class="nc" id="L157">  }</span>
+
+  @Override
+  public void writeIndex(int unionIndex) throws IOException {
+<span class="nc" id="L161">    writeInt(unionIndex);</span>
+<span class="nc" id="L162">  }</span>
+
+  /** Write a zero byte to the underlying output. **/
+  protected abstract void writeZero() throws IOException;
+
+  /**
+   * Returns the number of bytes currently buffered by this encoder. If this
+   * Encoder does not buffer, this will always return zero.
+   * &lt;p/&gt;
+   * Call {@link #flush()} to empty the buffer to the underlying output.
+   */
+  public abstract int bytesBuffered();
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,352 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ParseContext.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Avro</a> &gt; <a href="index.source.html" class="el_package">org.apache.avro</a> &gt; <span class="el_source">ParseContext.java</span></div><h1>ParseContext.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.avro;
+
+import org.apache.avro.util.SchemaResolver;
+import org.apache.avro.util.Schemas;
+
+import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import static java.util.Objects.requireNonNull;
+
+/**
+ * Class to define a name context, useful to reference schemata with. This
+ * allows for the following:
+ *
+ * &lt;ul&gt;
+ * &lt;li&gt;Collect new named schemata.&lt;/li&gt;
+ * &lt;li&gt;Find schemata by name, including primitives.&lt;/li&gt;
+ * &lt;li&gt;Find schemas that do not exist yet.&lt;/li&gt;
+ * &lt;li&gt;Resolve references to schemas that didn't exist yet when first used.&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;p&gt;
+ * This class is NOT thread-safe.
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * Note: this class has no use for most Avro users, but is a key component when
+ * implementing a schema parser.
+ * &lt;/p&gt;
+ *
+ * @see &lt;a href=&quot;https://avro.apache.org/docs/current/specification/&quot;&gt;JSON based
+ *      schema definition&lt;/a&gt;
+ **/
+public class ParseContext {
+<span class="fc" id="L58">  private static final Map&lt;String, Schema.Type&gt; PRIMITIVES = new HashMap&lt;&gt;();</span>
+
+  static {
+<span class="fc" id="L61">    PRIMITIVES.put(&quot;string&quot;, Schema.Type.STRING);</span>
+<span class="fc" id="L62">    PRIMITIVES.put(&quot;bytes&quot;, Schema.Type.BYTES);</span>
+<span class="fc" id="L63">    PRIMITIVES.put(&quot;int&quot;, Schema.Type.INT);</span>
+<span class="fc" id="L64">    PRIMITIVES.put(&quot;long&quot;, Schema.Type.LONG);</span>
+<span class="fc" id="L65">    PRIMITIVES.put(&quot;float&quot;, Schema.Type.FLOAT);</span>
+<span class="fc" id="L66">    PRIMITIVES.put(&quot;double&quot;, Schema.Type.DOUBLE);</span>
+<span class="fc" id="L67">    PRIMITIVES.put(&quot;boolean&quot;, Schema.Type.BOOLEAN);</span>
+<span class="fc" id="L68">    PRIMITIVES.put(&quot;null&quot;, Schema.Type.NULL);</span>
+  }
+
+<span class="fc" id="L71">  private static final Set&lt;Schema.Type&gt; NAMED_SCHEMA_TYPES = EnumSet.of(Schema.Type.RECORD, Schema.Type.ENUM,</span>
+      Schema.Type.FIXED);
+  /**
+   * Collection of old schemata. Can contain unresolved references if !isResolved.
+   */
+  private final Map&lt;String, Schema&gt; oldSchemas;
+  /**
+   * Collection of new schemata. Can contain unresolved references.
+   */
+  private final Map&lt;String, Schema&gt; newSchemas;
+  /**
+   * The name validator to use.
+   */
+  // Visible for use in JsonSchemaParser
+  final NameValidator nameValidator;
+  /**
+   * Visitor that was used to resolve schemata with. If not available, some
+   * schemata in {@code oldSchemas} may not be fully resolved. If available, all
+   * schemata in {@code oldSchemas} are resolved, and {@code newSchemas} is empty.
+   * After visiting a schema, it can return the corresponding resolved schema for
+   * a schema that possibly contains unresolved references.
+   */
+  private SchemaResolver.ResolvingVisitor resolvingVisitor;
+
+  /**
+   * Create a {@code ParseContext} for the default/{@code null} namespace, using
+   * default name validation for new schemata.
+   */
+  public ParseContext() {
+<span class="fc" id="L100">    this(NameValidator.UTF_VALIDATOR);</span>
+<span class="fc" id="L101">  }</span>
+
+  /**
+   * Create a {@code ParseContext} using the specified name validation for new
+   * schemata.
+   */
+  public ParseContext(NameValidator nameValidator) {
+<span class="fc" id="L108">    this(requireNonNull(nameValidator), new LinkedHashMap&lt;&gt;(), new LinkedHashMap&lt;&gt;());</span>
+<span class="fc" id="L109">  }</span>
+
+<span class="fc" id="L111">  private ParseContext(NameValidator nameValidator, Map&lt;String, Schema&gt; oldSchemas, Map&lt;String, Schema&gt; newSchemas) {</span>
+<span class="fc" id="L112">    this.nameValidator = nameValidator;</span>
+<span class="fc" id="L113">    this.oldSchemas = oldSchemas;</span>
+<span class="fc" id="L114">    this.newSchemas = newSchemas;</span>
+<span class="fc" id="L115">    resolvingVisitor = null;</span>
+<span class="fc" id="L116">  }</span>
+
+  /**
+   * Tell whether this context contains a schema with the given name.
+   *
+   * @param name a schema name
+   * @return {@code true} if the context contains a schema with this name,
+   *         {@code false} otherwise
+   */
+  public boolean contains(String name) {
+<span class="nc bnc" id="L126" title="All 6 branches missed.">    return PRIMITIVES.containsKey(name) || oldSchemas.containsKey(name) || newSchemas.containsKey(name);</span>
+  }
+
+  /**
+   * &lt;p&gt;
+   * Find a schema by name and namespace.
+   * &lt;/p&gt;
+   *
+   * &lt;p&gt;
+   * That is:
+   * &lt;/p&gt;
+   *
+   * &lt;ol&gt;
+   * &lt;li&gt;If {@code name} is a primitive name, return a (new) schema for it&lt;/li&gt;
+   * &lt;li&gt;Otherwise, determine the full schema name (using the given
+   * {@code namespace} if necessary), and find it&lt;/li&gt;
+   * &lt;li&gt;If no schema was found and {@code name} is a simple name, find the schema
+   * in the default (null) namespace&lt;/li&gt;
+   * &lt;li&gt;If still no schema was found, return an unresolved reference for the full
+   * schema name (see step 2)&lt;/li&gt;
+   * &lt;/ol&gt;
+   *
+   * &lt;p&gt;
+   * Note: as an unresolved reference might be returned, the schema is not
+   * directly usable. Please {@link #put(Schema)} the schema using it in the
+   * context. The {@link SchemaParser} and protocol parsers will ensure you'll
+   * only get a resolved schema that is usable.
+   * &lt;/p&gt;
+   *
+   * @param name      the schema name to find
+   * @param namespace the namespace to find the schema against
+   * @return the schema, or an unresolved reference
+   */
+  public Schema find(String name, String namespace) {
+<span class="fc" id="L160">    Schema.Type type = PRIMITIVES.get(name);</span>
+<span class="fc bfc" id="L161" title="All 2 branches covered.">    if (type != null) {</span>
+<span class="fc" id="L162">      return Schema.create(type);</span>
+    }
+
+<span class="fc" id="L165">    String fullName = fullName(name, namespace);</span>
+<span class="fc" id="L166">    Schema schema = getNamedSchema(fullName);</span>
+<span class="pc bpc" id="L167" title="1 of 2 branches missed.">    if (schema == null) {</span>
+<span class="fc" id="L168">      schema = getNamedSchema(name);</span>
+    }
+
+<span class="pc bpc" id="L171" title="1 of 2 branches missed.">    return schema != null ? schema : SchemaResolver.unresolvedSchema(fullName);</span>
+  }
+
+  private String fullName(String name, String namespace) {
+<span class="pc bpc" id="L175" title="1 of 4 branches missed.">    if (namespace != null &amp;&amp; name.lastIndexOf('.') &lt; 0) {</span>
+<span class="fc" id="L176">      return namespace + &quot;.&quot; + name;</span>
+    }
+<span class="fc" id="L178">    return name;</span>
+  }
+
+  /**
+   * Get a schema by name. Note that the schema might not (yet) be resolved/usable
+   * until {@link #resolveAllSchemas()} has been called.
+   *
+   * @param fullName a full schema name
+   * @return the schema, if known
+   */
+  public Schema getNamedSchema(String fullName) {
+<span class="fc" id="L189">    Schema schema = oldSchemas.get(fullName);</span>
+<span class="pc bpc" id="L190" title="1 of 2 branches missed.">    if (schema == null) {</span>
+<span class="fc" id="L191">      schema = newSchemas.get(fullName);</span>
+    }
+<span class="fc" id="L193">    return schema;</span>
+  }
+
+  /**
+   * Put the schema into this context. This is an idempotent operation: it only
+   * fails if this context already has a different schema with the same name.
+   *
+   * &lt;p&gt;
+   * Note that although this method works for all types except for arrays, maps
+   * and unions, all primitive types have already been defined upon construction.
+   * This means you cannot redefine a 'long' with a logical timestamp type.
+   * &lt;/p&gt;
+   *
+   * @param schema the schema to put into the context
+   */
+  public void put(Schema schema) {
+<span class="fc bfc" id="L209" title="All 2 branches covered.">    if (!(NAMED_SCHEMA_TYPES.contains(schema.getType()))) {</span>
+<span class="fc" id="L210">      throw new AvroTypeException(&quot;You can only put a named schema into the context&quot;);</span>
+    }
+
+<span class="fc" id="L213">    String fullName = requireValidFullName(schema.getFullName());</span>
+
+<span class="fc" id="L215">    Schema alreadyKnownSchema = oldSchemas.get(fullName);</span>
+<span class="pc bpc" id="L216" title="1 of 2 branches missed.">    if (alreadyKnownSchema != null) {</span>
+<span class="nc bnc" id="L217" title="All 2 branches missed.">      if (!schema.equals(alreadyKnownSchema)) {</span>
+<span class="nc" id="L218">        throw new SchemaParseException(&quot;Can't redefine: &quot; + fullName);</span>
+      }
+    } else {
+<span class="fc" id="L221">      resolvingVisitor = null;</span>
+<span class="fc" id="L222">      Schema previouslyAddedSchema = newSchemas.putIfAbsent(fullName, schema);</span>
+<span class="pc bpc" id="L223" title="3 of 4 branches missed.">      if (previouslyAddedSchema != null &amp;&amp; !previouslyAddedSchema.equals(schema)) {</span>
+<span class="nc" id="L224">        throw new SchemaParseException(&quot;Can't redefine: &quot; + fullName);</span>
+      }
+    }
+<span class="fc" id="L227">  }</span>
+
+  private String requireValidFullName(String fullName) {
+<span class="fc" id="L230">    String[] names = fullName.split(&quot;\\.&quot;);</span>
+<span class="fc bfc" id="L231" title="All 2 branches covered.">    for (int i = 0; i &lt; names.length - 1; i++) {</span>
+<span class="fc" id="L232">      validateName(names[i], &quot;Namespace part&quot;);</span>
+    }
+<span class="fc" id="L234">    validateName(names[names.length - 1], &quot;Name&quot;);</span>
+<span class="fc" id="L235">    return fullName;</span>
+  }
+
+  private void validateName(String name, String typeOfName) {
+<span class="fc" id="L239">    NameValidator.Result result = nameValidator.validate(name);</span>
+<span class="pc bpc" id="L240" title="1 of 2 branches missed.">    if (!result.isOK()) {</span>
+<span class="nc" id="L241">      throw new SchemaParseException(typeOfName + &quot; \&quot;&quot; + name + &quot;\&quot; is invalid: &quot; + result.getErrors());</span>
+    }
+<span class="fc" id="L243">  }</span>
+
+  public boolean hasNewSchemas() {
+<span class="pc bpc" id="L246" title="1 of 2 branches missed.">    return !newSchemas.isEmpty();</span>
+  }
+
+  public void commit() {
+<span class="fc" id="L250">    oldSchemas.putAll(newSchemas);</span>
+<span class="fc" id="L251">    newSchemas.clear();</span>
+<span class="fc" id="L252">  }</span>
+
+  public SchemaParser.ParseResult commit(Schema mainSchema) {
+<span class="nc" id="L255">    List&lt;Schema&gt; parsedNamedSchemas = new ArrayList&lt;&gt;(newSchemas.values());</span>
+<span class="nc" id="L256">    SchemaParser.ParseResult parseResult = new SchemaParser.ParseResult() {</span>
+      @Override
+      public Schema mainSchema() {
+<span class="nc bnc" id="L259" title="All 2 branches missed.">        return mainSchema == null ? null : resolve(mainSchema);</span>
+      }
+
+      @Override
+      public List&lt;Schema&gt; parsedNamedSchemas() {
+<span class="nc" id="L264">        return parsedNamedSchemas.stream().map(ParseContext.this::resolve).collect(Collectors.toList());</span>
+      }
+    };
+<span class="nc" id="L267">    commit();</span>
+<span class="nc" id="L268">    return parseResult;</span>
+  }
+
+  public void rollback() {
+<span class="nc" id="L272">    newSchemas.clear();</span>
+<span class="nc" id="L273">  }</span>
+
+  /**
+   * Resolve all (named) schemas that were parsed. This resolves all forward
+   * references, even if parsed from different files. Note: the context must be
+   * committed for this method to work.
+   *
+   * @return all parsed schemas
+   * @throws AvroTypeException if a schema reference cannot be resolved
+   */
+  public List&lt;Schema&gt; resolveAllSchemas() {
+<span class="nc" id="L284">    ensureSchemasAreResolved();</span>
+
+<span class="nc" id="L286">    return new ArrayList&lt;&gt;(oldSchemas.values());</span>
+  }
+
+  private void ensureSchemasAreResolved() {
+<span class="pc bpc" id="L290" title="1 of 2 branches missed.">    if (hasNewSchemas()) {</span>
+<span class="nc" id="L291">      throw new IllegalStateException(&quot;Schemas cannot be resolved unless the ParseContext is committed.&quot;);</span>
+    }
+<span class="pc bpc" id="L293" title="1 of 2 branches missed.">    if (resolvingVisitor == null) {</span>
+<span class="fc" id="L294">      NameValidator saved = Schema.getNameValidator();</span>
+      try {
+        // Ensure we use the same validation when copying schemas as when they were
+        // defined.
+<span class="fc" id="L298">        Schema.setNameValidator(nameValidator);</span>
+<span class="fc" id="L299">        SchemaResolver.ResolvingVisitor visitor = new SchemaResolver.ResolvingVisitor(oldSchemas::get);</span>
+<span class="fc" id="L300">        oldSchemas.values().forEach(schema -&gt; Schemas.visit(schema, visitor));</span>
+        // Before this point is where we can get exceptions due to resolving failures.
+<span class="fc bfc" id="L302" title="All 2 branches covered.">        for (Map.Entry&lt;String, Schema&gt; entry : oldSchemas.entrySet()) {</span>
+<span class="fc" id="L303">          entry.setValue(visitor.getResolved(entry.getValue()));</span>
+<span class="fc" id="L304">        }</span>
+<span class="fc" id="L305">        resolvingVisitor = visitor;</span>
+      } finally {
+<span class="fc" id="L307">        Schema.setNameValidator(saved);</span>
+      }
+    }
+<span class="fc" id="L310">  }</span>
+
+  /**
+   * Resolve unresolved references in a schema &lt;em&gt;that was parsed for this
+   * context&lt;/em&gt; using the types known to this context. Note: this method will
+   * ensure all known schemas are resolved, or throw, and thus requires the
+   * context to be committed.
+   *
+   * @param schema the schema resolve
+   * @return the fully resolved schema
+   * @throws AvroTypeException if a schema reference cannot be resolved
+   */
+  public Schema resolve(Schema schema) {
+<span class="fc" id="L323">    ensureSchemasAreResolved();</span>
+
+    // As all (named) schemas are resolved now, we know:
+    // — All named types are either in oldSchemas or unknown.
+    // — All unnamed types can be visited&amp;resolved without validation.
+
+<span class="pc bpc" id="L329" title="1 of 4 branches missed.">    if (NAMED_SCHEMA_TYPES.contains(schema.getType()) &amp;&amp; schema.getFullName() != null) {</span>
+<span class="pc" id="L330">      return requireNonNull(oldSchemas.get(schema.getFullName()), () -&gt; &quot;Unknown schema: &quot; + schema.getFullName());</span>
+    } else {
+      // Unnamed or anonymous schema
+      // (protocol message request parameters are anonymous records)
+<span class="fc" id="L334">      Schemas.visit(schema, resolvingVisitor); // This field is set, as ensureSchemasAreResolved(); was called.</span>
+<span class="fc" id="L335">      return resolvingVisitor.getResolved(schema);</span>
+    }
+  }
+
+  /**
+   * Return all known types by their fullname. Warning: this returns all types,
+   * even uncommitted ones, including unresolved references!
+   *
+   * @return a map of all types by their name
+   */
+  public Map&lt;String, Schema&gt; typesByName() {
+<span class="fc" id="L346">    LinkedHashMap&lt;String, Schema&gt; result = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L347">    result.putAll(oldSchemas);</span>
+<span class="fc" id="L348">    result.putAll(newSchemas);</span>
+<span class="fc" id="L349">    return result;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
